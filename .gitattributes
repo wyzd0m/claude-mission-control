@@ -1,0 +1,10 @@
+# Normalize all text files to LF in the repository and on checkout, so
+# formatting checks behave identically on Windows, macOS, and Linux.
+* text=auto eol=lf
+
+# Binary files
+*.png binary
+*.jpg binary
+*.ico binary
+*.mcpb binary
+*.zip binary
