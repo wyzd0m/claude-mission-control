@@ -66,13 +66,13 @@ If progress is unknown, omit it.
 
 ## Human-readable labels
 
-| Tool | User-facing activity |
-|---|---|
-| `get_active_project` | Loading the active project |
-| `prepare_project_context` | Preparing project context |
-| `record_decision` | Recording a project decision |
-| `save_checkpoint` | Saving a project checkpoint |
-| `export_project` | Packaging a project export |
+| Tool                      | User-facing activity         |
+| ------------------------- | ---------------------------- |
+| `get_active_project`      | Loading the active project   |
+| `prepare_project_context` | Preparing project context    |
+| `record_decision`         | Recording a project decision |
+| `save_checkpoint`         | Saving a project checkpoint  |
+| `export_project`          | Packaging a project export   |
 
 Technical names remain available in the detail panel.
 

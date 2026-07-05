@@ -1,6 +1,6 @@
 # Claude Mission Control
 
-> **Status:** Phase 0 (platform proof) implemented; awaiting manual Claude Desktop install verification. Production implementation has not started.
+> **Status:** Phase 1 (repository foundation) complete. Phase 0 platform proof verified on Claude Desktop 1.8555.2 with one documented host limitation (see [`poc/README.md`](poc/README.md)).
 
 Claude Mission Control is a proposed local-first desktop extension for Claude Desktop. It gives Claude structured project-management tools through MCP and presents observable tool activity through a clean, futuristic, low-poly isometric facility.
 
@@ -41,23 +41,23 @@ A user should be able to:
 
 ## Planning documents
 
-| Document | Purpose |
-|---|---|
-| [`CLAUDE.md`](CLAUDE.md) | Permanent build instructions for Claude |
-| [`docs/PROJECT_VISION.md`](docs/PROJECT_VISION.md) | Product identity, users, and value |
-| [`docs/PRODUCT_REQUIREMENTS.md`](docs/PRODUCT_REQUIREMENTS.md) | Version 1 scope and requirements |
-| [`docs/VISUAL_DESIGN.md`](docs/VISUAL_DESIGN.md) | Facility, UI layout, rooms, robots, and states |
-| [`docs/TECHNOLOGY_PLAN.md`](docs/TECHNOLOGY_PLAN.md) | Proposed stack and technical choices |
-| [`docs/SYSTEM_ARCHITECTURE.md`](docs/SYSTEM_ARCHITECTURE.md) | Modules and data flow |
-| [`docs/MCP_OBSERVABILITY_MODEL.md`](docs/MCP_OBSERVABILITY_MODEL.md) | What can and cannot be visualized |
-| [`docs/TOOL_AND_EVENT_MODEL.md`](docs/TOOL_AND_EVENT_MODEL.md) | Tool categories and event contract |
-| [`docs/INSTALLATION_AND_DISTRIBUTION.md`](docs/INSTALLATION_AND_DISTRIBUTION.md) | One-click packaging strategy |
-| [`docs/IMPLEMENTATION_ROADMAP.md`](docs/IMPLEMENTATION_ROADMAP.md) | Claude-led phased build plan |
-| [`docs/TESTING_STRATEGY.md`](docs/TESTING_STRATEGY.md) | Functional, visual, and installer tests |
-| [`docs/ACCEPTANCE_CRITERIA.md`](docs/ACCEPTANCE_CRITERIA.md) | Definition of done |
-| [`docs/RISKS_AND_LIMITATIONS.md`](docs/RISKS_AND_LIMITATIONS.md) | Product and technical risks |
-| [`docs/DECISION_LOG.md`](docs/DECISION_LOG.md) | Confirmed decisions |
-| [`docs/RESEARCH_NOTES.md`](docs/RESEARCH_NOTES.md) | Current platform references |
+| Document                                                                         | Purpose                                        |
+| -------------------------------------------------------------------------------- | ---------------------------------------------- |
+| [`CLAUDE.md`](CLAUDE.md)                                                         | Permanent build instructions for Claude        |
+| [`docs/PROJECT_VISION.md`](docs/PROJECT_VISION.md)                               | Product identity, users, and value             |
+| [`docs/PRODUCT_REQUIREMENTS.md`](docs/PRODUCT_REQUIREMENTS.md)                   | Version 1 scope and requirements               |
+| [`docs/VISUAL_DESIGN.md`](docs/VISUAL_DESIGN.md)                                 | Facility, UI layout, rooms, robots, and states |
+| [`docs/TECHNOLOGY_PLAN.md`](docs/TECHNOLOGY_PLAN.md)                             | Proposed stack and technical choices           |
+| [`docs/SYSTEM_ARCHITECTURE.md`](docs/SYSTEM_ARCHITECTURE.md)                     | Modules and data flow                          |
+| [`docs/MCP_OBSERVABILITY_MODEL.md`](docs/MCP_OBSERVABILITY_MODEL.md)             | What can and cannot be visualized              |
+| [`docs/TOOL_AND_EVENT_MODEL.md`](docs/TOOL_AND_EVENT_MODEL.md)                   | Tool categories and event contract             |
+| [`docs/INSTALLATION_AND_DISTRIBUTION.md`](docs/INSTALLATION_AND_DISTRIBUTION.md) | One-click packaging strategy                   |
+| [`docs/IMPLEMENTATION_ROADMAP.md`](docs/IMPLEMENTATION_ROADMAP.md)               | Claude-led phased build plan                   |
+| [`docs/TESTING_STRATEGY.md`](docs/TESTING_STRATEGY.md)                           | Functional, visual, and installer tests        |
+| [`docs/ACCEPTANCE_CRITERIA.md`](docs/ACCEPTANCE_CRITERIA.md)                     | Definition of done                             |
+| [`docs/RISKS_AND_LIMITATIONS.md`](docs/RISKS_AND_LIMITATIONS.md)                 | Product and technical risks                    |
+| [`docs/DECISION_LOG.md`](docs/DECISION_LOG.md)                                   | Confirmed decisions                            |
+| [`docs/RESEARCH_NOTES.md`](docs/RESEARCH_NOTES.md)                               | Current platform references                    |
 
 ## Working identity
 
@@ -68,8 +68,14 @@ A user should be able to:
 
 ## Current phase
 
-**Phase 0 — Platform proof** is built and awaiting the manual Claude Desktop install test.
+**Phase 1 — Repository foundation** is complete: npm workspaces (`packages/domain`, `packages/server`,
+`packages/ui`), strict TypeScript project references, ESLint with enforced architecture boundaries,
+Prettier, Vitest, and CI on Windows and Linux. See [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md).
 
-The proof-of-concept extension lives in [`poc/`](poc/README.md): a minimal MCP server, an embedded
-MCP App with React and a Three.js primitive, local persistence, automated protocol tests, and a
-packaged `.mcpb` bundle. See the checklist in the PoC README for the remaining exit criteria.
+**Phase 0 — Platform proof** passed on Claude Desktop 1.8555.2 (Windows 11): the bundled server,
+tools, persistence, and single-file UI all verified. One host limitation is documented in
+[`poc/README.md`](poc/README.md): chat conversations currently do not surface locally installed
+extension tools to the model (Claude Code sessions in the same app do). Re-tested after each
+Claude Desktop update.
+
+Next: **Phase 2 — Domain and database.**

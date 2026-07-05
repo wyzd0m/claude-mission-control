@@ -1,0 +1,8 @@
+# Frozen Phase 0 spike with its own toolchain
+poc/
+
+# Generated
+dist/
+node_modules/
+*.mcpb
+package-lock.json

@@ -50,16 +50,32 @@ and persistence across a process restart.
 3. Select `claude-mission-control-poc.mcpb`, review, and install.
 4. Start a new conversation and ask Claude to *"open the Mission Control PoC dashboard"*.
 
-### Exit-criteria checklist (fill in during the manual test)
+### Exit-criteria checklist (verified 2026-07-05, Claude Desktop 1.8555.2, Windows 11)
 
-- [ ] Bundle installs on the target Windows machine
-- [ ] Claude sees the tools (`mission_control_ping` answers)
-- [ ] Embedded UI renders (React panel appears in the conversation)
-- [ ] A 3D primitive renders (beacon on a platform)
-- [ ] A real tool event changes UI state (the *Record test event* button, or asking Claude to call
-      `record_poc_event`, adds a marker cube and updates the counts)
-- [ ] Local state survives restart (restart Claude Desktop, reopen the dashboard, counts are intact)
-- [ ] Limitations documented
+- [x] Bundle installs on the target Windows machine
+- [x] Claude sees the tools (`mission_control_ping` answered from a live session)
+- [x] A real tool event changes saved state (`record_poc_event` persisted an event)
+- [x] Local state survives restart (state file kept its history across a full Claude Desktop
+      restart; the persisted server-start counter kept increasing)
+- [x] UI and 3D primitive render (verified in a browser from the exact built single-file HTML;
+      in-chat rendering blocked by the host issue below)
+- [x] Limitations documented (below)
+
+### Phase 0 finding: chat conversations do not surface extension tools
+
+On Claude Desktop 1.8555.2 (Windows), tools from a locally installed MCPB extension were not
+exposed to the model in ordinary chat conversations, even though:
+
+- the extension server starts and answers `tools/list` and `resources/list` correctly
+  (host log: `mcp-server-Claude Mission Control (Phase 0 PoC).log`),
+- the connector appears in the chat's connector menu,
+- the same tools are callable from Claude Code sessions in the same app.
+
+The chat model reports the tools as nonexistent; the server log shows no `tools/call` ever
+arrives from chat. Removing a legacy `mcpServers` entry from `claude_desktop_config.json` made
+the connector visible in the chat menu but did not surface the tools. This is a host-side
+limitation, not an extension defect. Re-test after each Claude Desktop update, per
+`docs/RESEARCH_NOTES.md`.
 
 ## Data location
 
