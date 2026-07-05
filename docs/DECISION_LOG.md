@@ -104,3 +104,20 @@ GitHub, Gmail, Drive, Calendar, Slack, cloud sync, and teams are deferred.
 **Status:** Accepted
 
 Claude completes, tests, and reports each phase before continuing.
+
+## D-017 — Phase 0 implementation choices
+
+**Status:** Provisional pending the manual Claude Desktop install test
+
+Verified against official documentation in July 2026:
+
+- MCP Apps via the official `@modelcontextprotocol/ext-apps` package: tools declare
+  `_meta.ui.resourceUri` pointing at a `ui://` resource; the UI ships as a single self-contained
+  HTML file (Vite + `vite-plugin-singlefile`) and talks to the host with the `App` class.
+- The PoC server is bundled to one CommonJS file with esbuild, so the `.mcpb` ships no
+  `node_modules` (bundle is 4 files, ~577 kB packed).
+- Packaging uses the `@anthropic-ai/mcpb` CLI with `manifest_version: "0.3"` and a stdio Node server.
+- PoC persistence is a JSON state file in the OS application-data directory with atomic writes.
+  This is Phase 0 scaffolding only; the SQLite decision (D-014) remains open for Phase 2.
+- Automated protocol tests spawn the built bundle over stdio with the MCP SDK client and verify
+  tool listing, the UI resource, input validation, and persistence across restart.

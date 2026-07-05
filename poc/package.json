@@ -1,0 +1,39 @@
+{
+  "name": "claude-mission-control-poc",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Phase 0 platform proof for Claude Mission Control: minimal MCP server, MCP App with React and Three.js, local persistence, and an MCPB bundle.",
+  "type": "module",
+  "scripts": {
+    "build": "npm run build:ui && npm run build:server && npm run build:bundle",
+    "build:ui": "vite build",
+    "build:server": "esbuild server/src/index.ts --bundle --platform=node --format=cjs --target=node18 --outfile=dist/bundle/server/index.js --log-level=warning",
+    "build:bundle": "node scripts/make-bundle.mjs",
+    "pack": "mcpb pack dist/bundle dist/claude-mission-control-poc.mcpb",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "verify": "npm run typecheck && npm run build && npm run test && npm run pack"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/ext-apps": "^1.7.4",
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@anthropic-ai/mcpb": "^2.1.2",
+    "@react-three/fiber": "^9.6.1",
+    "@types/node": "^26.1.0",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@types/three": "^0.185.0",
+    "@vitejs/plugin-react": "^6.0.3",
+    "esbuild": "^0.28.1",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "three": "^0.185.1",
+    "typescript": "^6.0.3",
+    "vite": "^8.1.3",
+    "vite-plugin-singlefile": "^2.3.3",
+    "vitest": "^4.1.9"
+  }
+}

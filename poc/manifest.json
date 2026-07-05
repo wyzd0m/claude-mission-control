@@ -1,0 +1,24 @@
+{
+  "manifest_version": "0.3",
+  "name": "claude-mission-control-poc",
+  "display_name": "Claude Mission Control (Phase 0 PoC)",
+  "version": "0.0.1",
+  "description": "Phase 0 platform proof for Claude Mission Control: verifies that a bundled MCP server, an embedded MCP App with React and Three.js, and local persistence all work inside Claude Desktop. Not the final product.",
+  "author": {
+    "name": "wyzd0m"
+  },
+  "server": {
+    "type": "node",
+    "entry_point": "server/index.js",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/server/index.js"]
+    }
+  },
+  "compatibility": {
+    "platforms": ["win32", "darwin"],
+    "runtimes": {
+      "node": ">=18.0.0"
+    }
+  }
+}

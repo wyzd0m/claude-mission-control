@@ -1,6 +1,6 @@
 # Claude Mission Control
 
-> **Status:** Planning phase only. No production implementation has been started.
+> **Status:** Phase 0 (platform proof) implemented; awaiting manual Claude Desktop install verification. Production implementation has not started.
 
 Claude Mission Control is a proposed local-first desktop extension for Claude Desktop. It gives Claude structured project-management tools through MCP and presents observable tool activity through a clean, futuristic, low-poly isometric facility.
 
@@ -68,4 +68,8 @@ A user should be able to:
 
 ## Current phase
 
-The project is ready for architecture review and prompt-driven implementation by Claude. No implementation should begin until these planning documents are reviewed and accepted.
+**Phase 0 — Platform proof** is built and awaiting the manual Claude Desktop install test.
+
+The proof-of-concept extension lives in [`poc/`](poc/README.md): a minimal MCP server, an embedded
+MCP App with React and a Three.js primitive, local persistence, automated protocol tests, and a
+packaged `.mcpb` bundle. See the checklist in the PoC README for the remaining exit criteria.
