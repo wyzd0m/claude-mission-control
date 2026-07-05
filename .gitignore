@@ -25,3 +25,6 @@ Thumbs.db
 # Environment files
 .env
 .env.*
+
+# Machine-specific dev launch config
+.claude/launch.json
