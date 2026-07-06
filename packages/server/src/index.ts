@@ -1,17 +1,29 @@
 // Server side of Claude Mission Control.
 //
-// Architecture contract (docs/SYSTEM_ARCHITECTURE.md): this package will own
-// the MCP adapter, application services, the storage adapter (SQLite +
-// migrations), and the activity event service. It depends on the domain core
-// and must never import React or Three.js. ESLint enforces this.
-//
-// Phase 1 establishes the package skeleton only. MCP tools are Phase 3 work;
-// this placeholder proves the cross-package build wiring.
-
-import { DOMAIN_PACKAGE_NAME } from "@mission-control/domain";
+// Architecture contract (docs/SYSTEM_ARCHITECTURE.md): this package owns the
+// storage adapter (SQLite via node:sqlite, migrations, repositories), and —
+// in later phases — application services, the MCP adapter, and the activity
+// event service. It depends on the domain core and never imports UI
+// frameworks. ESLint enforces this.
 
 export const SERVER_PACKAGE_NAME = "@mission-control/server";
 
-export function describeWiring(): string {
-  return `${SERVER_PACKAGE_NAME} -> ${DOMAIN_PACKAGE_NAME}`;
-}
+export { openDatabase, backupDatabase, withTransaction } from "./storage/database.js";
+export { MIGRATIONS, runMigrations } from "./storage/migrations.js";
+export {
+  resolveDataRoot,
+  databaseFilePath,
+  backupsDirPath,
+  exportsDirPath,
+  logsDirPath,
+} from "./storage/paths.js";
+export {
+  SqliteProjectRepository,
+  SqliteTaskRepository,
+  SqliteDecisionRepository,
+  SqliteArtifactRepository,
+  SqliteCheckpointRepository,
+  SqliteActivityEventRepository,
+  SqliteSettingsRepository,
+} from "./storage/repositories.js";
+export { buildProjectExport, importProject } from "./storage/import-export.js";

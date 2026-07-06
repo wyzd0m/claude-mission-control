@@ -13,6 +13,7 @@
     }
   },
   "dependencies": {
-    "@mission-control/domain": "*"
+    "@mission-control/domain": "*",
+    "zod": "^4.4.3"
   }
 }

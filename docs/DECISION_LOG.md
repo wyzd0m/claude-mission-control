@@ -121,3 +121,28 @@ Verified against official documentation in July 2026:
   This is Phase 0 scaffolding only; the SQLite decision (D-014) remains open for Phase 2.
 - Automated protocol tests spawn the built bundle over stdio with the MCP SDK client and verify
   tool listing, the UI resource, input validation, and persistence across restart.
+
+## D-018 — SQLite through the Node.js built-in driver
+
+**Status:** Accepted, re-verified during Phase 9 packaging
+
+Resolves the library question left open by D-014. The storage adapter uses `node:sqlite`
+(`DatabaseSync`), which ships inside the Node.js runtime that Claude Desktop already bundles
+(Node 24 at the time of this decision). Consequences:
+
+- No native module to compile, prebuild, or package — the `.mcpb` stays free of `node_modules`.
+- No WebAssembly fallback needed for version 1.
+- Alternatives considered: `better-sqlite3` (native packaging risk on a clean machine) and
+  `sql.js`/WASM (larger bundle, weaker durability story).
+- Verified by the Phase 2 test suite: migrations, transactions, foreign keys, `VACUUM INTO`
+  backups, and WAL journaling all work on Node 24.
+
+## D-019 — Optimistic concurrency via record revisions
+
+**Status:** Accepted
+
+Every mutable record (project, task) carries an integer `revision`. Domain update functions
+return a copy with the revision bumped; repositories only overwrite the row whose stored revision
+matches the expected previous value and raise `REVISION_CONFLICT` otherwise
+(docs/SYSTEM_ARCHITECTURE.md "Concurrency"). Activity events use a state machine instead — their
+transitions are validated in the domain and terminal states are immutable.

@@ -68,6 +68,12 @@ A user should be able to:
 
 ## Current phase
 
+**Phase 2 — Domain and database** is complete: framework-free domain models (projects, tasks,
+decisions, artifacts, checkpoints, activity events with the canonical status state machine),
+stable error codes, a validated portable export format, and SQLite storage through the Node.js
+built-in `node:sqlite` driver with versioned migrations, optimistic concurrency, transactional
+import/export, and backups. See [`docs/DECISION_LOG.md`](docs/DECISION_LOG.md) (D-018, D-019).
+
 **Phase 1 — Repository foundation** is complete: npm workspaces (`packages/domain`, `packages/server`,
 `packages/ui`), strict TypeScript project references, ESLint with enforced architecture boundaries,
 Prettier, Vitest, and CI on Windows and Linux. See [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md).
@@ -78,4 +84,4 @@ tools, persistence, and single-file UI all verified. One host limitation is docu
 extension tools to the model (Claude Code sessions in the same app do). Re-tested after each
 Claude Desktop update.
 
-Next: **Phase 2 — Domain and database.**
+Next: **Phase 3 — MCP tools.**
