@@ -137,6 +137,25 @@ Resolves the library question left open by D-014. The storage adapter uses `node
 - Verified by the Phase 2 test suite: migrations, transactions, foreign keys, `VACUUM INTO`
   backups, and WAL journaling all work on Node 24.
 
+## D-020 — Phase 3 tool-set adjustments
+
+**Status:** Accepted
+
+Deviations from the proposed list in `docs/TOOL_AND_EVENT_MODEL.md`, decided during Phase 3:
+
+- Added `update_project` (rename/details) and `archive_project`: required by the
+  `docs/PRODUCT_REQUIREMENTS.md` user stories ("create, rename, archive") but missing from the
+  proposed tool list.
+- `record_validation_result` records its outcome against a registered artifact
+  (verified/failed + the validation performed). `mark_artifact_verified` is kept as specified;
+  both share one implementation. The docs list both tools with overlapping purposes — resolved as
+  aliases rather than inventing a separate validation record type.
+- `open_mission_control` is deferred to Phase 5, when the MCP App dashboard exists. Phase 3 has
+  no visual UI dependency by design.
+- Approval tokens (bulk update, import) are in-memory, single-use, expire after 10 minutes, and
+  are bound to a hash of the exact previewed payload including affected record revisions. A server
+  restart invalidates open previews, which is safe: the user previews again.
+
 ## D-019 — Optimistic concurrency via record revisions
 
 **Status:** Accepted

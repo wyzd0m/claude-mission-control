@@ -27,3 +27,18 @@ export {
   SqliteSettingsRepository,
 } from "./storage/repositories.js";
 export { buildProjectExport, importProject } from "./storage/import-export.js";
+export {
+  createServiceContext,
+  requireProject,
+  type ServiceContext,
+} from "./services/service-context.js";
+export { ApprovalService, hashApprovalPayload } from "./services/approval-service.js";
+export { createProjectService, type ProjectBrief } from "./services/project-service.js";
+export { createTaskService, type BulkUpdatePreview } from "./services/task-service.js";
+export { createRecordService } from "./services/record-service.js";
+export {
+  createContextPackageService,
+  type ContextPackage,
+} from "./services/context-package-service.js";
+export { createImportExportService, type ImportPreview } from "./services/import-export-service.js";
+export { createMissionControlServer, SERVER_VERSION } from "./mcp/server.js";

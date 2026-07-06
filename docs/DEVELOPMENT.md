@@ -40,6 +40,25 @@ Run from the repository root:
 The Phase 0 PoC is intentionally not part of the workspace. To work with it:
 `cd poc && npm install && npm run verify` (see `poc/README.md`).
 
+## Running the MCP server locally
+
+| Command               | What it does                                                             |
+| --------------------- | ------------------------------------------------------------------------ |
+| `npm run mcp:dev`     | Starts the Mission Control MCP server on stdio (for host configuration)  |
+| `npm run mcp:inspect` | Opens MCP Inspector connected to the server for interactive tool testing |
+
+The server stores data in the OS application-data directory
+(`%APPDATA%\ClaudeMissionControl` on Windows). Set `CMC_DATA_DIR` to point it at a scratch
+directory during development:
+
+```powershell
+$env:CMC_DATA_DIR = "$env:TEMP\cmc-dev"; npm run mcp:inspect
+```
+
+Inspector checklist for a new tool: it appears in the tool list, its description states side
+effects, invalid input returns a structured `{ ok: false, error }` result with a stable code and
+recovery hint, and the happy path returns `{ ok: true, ... }`.
+
 ## Continuous integration
 
 `.github/workflows/ci.yml` runs on every push and pull request, on both Ubuntu and Windows:

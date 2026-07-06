@@ -8,6 +8,14 @@ Version 1.0.0 is the first one-click release described in `docs/IMPLEMENTATION_R
 
 ### Added
 
+- Phase 3 MCP tools: 24 tools covering projects (create/list/brief/activate/update/stage/archive),
+  tasks (create/update/list plus bulk preview-and-apply with single-use expiring confirmation
+  tokens), decisions, checkpoints, context packages, artifacts with validation results, and
+  export/import with the preview/approve pattern. Application-service layer between the thin MCP
+  adapter and storage; structured `{ ok, error: { code, message, recovery } }` result contract;
+  stdio entry point and MCP Inspector workflow (`npm run mcp:dev` / `npm run mcp:inspect`);
+  in-process protocol tests (26 new tests).
+
 - Phase 2 domain and database: framework-free domain models with Zod validation for projects,
   tasks, decisions, artifacts, checkpoints, and activity events (canonical status state machine,
   explicit-progress rules); stable error codes with recovery hints; portable project export format

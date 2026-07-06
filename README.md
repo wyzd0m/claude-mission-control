@@ -68,6 +68,12 @@ A user should be able to:
 
 ## Current phase
 
+**Phase 3 — MCP tools** is complete: 24 structured tools for projects, tasks (including bulk
+changes behind a preview/approve confirmation-token flow), decisions, checkpoints, context
+packages, artifacts with validation results, and export/import. Every tool validates input,
+states its side effects, and returns a stable `{ ok, error }` contract. Runs on stdio; test it
+interactively with `npm run mcp:inspect`.
+
 **Phase 2 — Domain and database** is complete: framework-free domain models (projects, tasks,
 decisions, artifacts, checkpoints, activity events with the canonical status state machine),
 stable error codes, a validated portable export format, and SQLite storage through the Node.js
@@ -84,4 +90,4 @@ tools, persistence, and single-file UI all verified. One host limitation is docu
 extension tools to the model (Claude Code sessions in the same app do). Re-tested after each
 Claude Desktop update.
 
-Next: **Phase 3 — MCP tools.**
+Next: **Phase 4 — Event and observability layer.**

@@ -9,7 +9,18 @@
 export const DOMAIN_PACKAGE_NAME = "@mission-control/domain";
 
 export * from "./errors.js";
-export { LIMITS, type DomainDeps } from "./common.js";
+export {
+  LIMITS,
+  idSchema,
+  timestampSchema,
+  nameSchema,
+  shortTextSchema,
+  longTextSchema,
+  textListSchema,
+  idListSchema,
+  definedProps,
+  type DomainDeps,
+} from "./common.js";
 export * from "./project.js";
 export * from "./task.js";
 export * from "./decision.js";
