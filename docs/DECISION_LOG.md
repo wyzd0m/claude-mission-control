@@ -137,6 +137,24 @@ Resolves the library question left open by D-014. The storage adapter uses `node
 - Verified by the Phase 2 test suite: migrations, transactions, foreign keys, `VACUUM INTO`
   backups, and WAL journaling all work on Node 24.
 
+## D-021 — Phase 4 event lifecycle semantics
+
+**Status:** Accepted
+
+- Synchronous local tool operations persist the lifecycle `queued → working → terminal`.
+  `travelling` remains a canonical status, but per `docs/MCP_OBSERVABILITY_MODEL.md` it is a
+  presentation state a renderer derives from a real queued operation; the server does not
+  fabricate it for instantaneous work.
+- Every tool call produces exactly one persisted event; the tool result carries the event id and
+  correlation id, and failed events reuse the same stable error code the tool returned.
+- Pending approvals are open `waiting_for_input` events at the Security Gate, bound to their
+  confirmation token. Applying resolves them through `working → succeeded`; a failed apply (e.g.
+  revision conflict after approval) fails them; expiry cancels them via a lazy sweep run by the
+  projections. A preview therefore never appears as completed work.
+- On startup the server cancels events left open by a previous process: after a restart nothing
+  is actually running and confirmation tokens are gone, so open events would be dishonest.
+- Events reference a project only when it exists; telemetry never carries dangling foreign keys.
+
 ## D-020 — Phase 3 tool-set adjustments
 
 **Status:** Accepted

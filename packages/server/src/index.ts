@@ -41,4 +41,10 @@ export {
   type ContextPackage,
 } from "./services/context-package-service.js";
 export { createImportExportService, type ImportPreview } from "./services/import-export-service.js";
+export {
+  createActivityEventService,
+  IDLE_MESSAGE,
+  type ActivityEventService,
+  type CurrentActivity,
+} from "./services/activity-event-service.js";
 export { createMissionControlServer, SERVER_VERSION } from "./mcp/server.js";

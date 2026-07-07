@@ -68,6 +68,12 @@ A user should be able to:
 
 ## Current phase
 
+**Phase 4 — Event and observability layer** is complete: every tool call persists one truthful
+activity event (queued → working → succeeded/failed) with a human-readable label and department
+mapping; pending approvals wait at the Security Gate until applied, conflicted, or expired;
+current-activity and timeline projections expose exactly what happened, and the idle state says
+only that no observable activity exists.
+
 **Phase 3 — MCP tools** is complete: 24 structured tools for projects, tasks (including bulk
 changes behind a preview/approve confirmation-token flow), decisions, checkpoints, context
 packages, artifacts with validation results, and export/import. Every tool validates input,
@@ -90,4 +96,4 @@ tools, persistence, and single-file UI all verified. One host limitation is docu
 extension tools to the model (Claude Code sessions in the same app do). Re-tested after each
 Claude Desktop update.
 
-Next: **Phase 4 — Event and observability layer.**
+Next: **Phase 5 — Conventional dashboard.**

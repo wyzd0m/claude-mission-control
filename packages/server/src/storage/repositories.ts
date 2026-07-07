@@ -559,10 +559,11 @@ export class SqliteActivityEventRepository implements ActivityEventRepository {
   update(event: ActivityEvent): void {
     const result = this.db
       .prepare(
-        `UPDATE activity_events SET status = ?, updated_at = ?, completed_at = ?, progress_current = ?, progress_total = ?, progress_message = ?, requires_input = ?, result_summary = ?, error_code = ?, error_summary = ?
+        `UPDATE activity_events SET project_id = ?, status = ?, updated_at = ?, completed_at = ?, progress_current = ?, progress_total = ?, progress_message = ?, requires_input = ?, result_summary = ?, error_code = ?, error_summary = ?
          WHERE id = ?`,
       )
       .run(
+        event.projectId,
         event.status,
         event.updatedAt,
         event.completedAt,
@@ -590,11 +591,11 @@ export class SqliteActivityEventRepository implements ActivityEventRepository {
     const rows = (projectId
       ? this.db
           .prepare(
-            "SELECT * FROM activity_events WHERE project_id = ? ORDER BY started_at DESC, id DESC LIMIT ?",
+            "SELECT * FROM activity_events WHERE project_id = ? ORDER BY started_at DESC, rowid DESC LIMIT ?",
           )
           .all(projectId, limit)
       : this.db
-          .prepare("SELECT * FROM activity_events ORDER BY started_at DESC, id DESC LIMIT ?")
+          .prepare("SELECT * FROM activity_events ORDER BY started_at DESC, rowid DESC LIMIT ?")
           .all(limit)) as unknown as Row[];
     return rows.map(eventFromRow);
   }
@@ -603,7 +604,7 @@ export class SqliteActivityEventRepository implements ActivityEventRepository {
     const placeholders = TERMINAL_EVENT_STATUSES.map(() => "?").join(", ");
     const rows = this.db
       .prepare(
-        `SELECT * FROM activity_events WHERE status NOT IN (${placeholders}) ORDER BY started_at ASC, id ASC`,
+        `SELECT * FROM activity_events WHERE status NOT IN (${placeholders}) ORDER BY started_at ASC, rowid ASC`,
       )
       .all(...(TERMINAL_EVENT_STATUSES as unknown as never[])) as unknown as Row[];
     return rows.map(eventFromRow);

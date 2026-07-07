@@ -8,6 +8,13 @@ Version 1.0.0 is the first one-click release described in `docs/IMPLEMENTATION_R
 
 ### Added
 
+- Phase 4 event and observability layer: every tool call now runs under a persisted
+  activity-event lifecycle with accurate terminal states, human-readable labels, and live
+  department mapping. Pending approvals appear as open Security Gate `waiting_for_input` events
+  that resolve on apply, fail on post-approval conflicts, and cancel on token expiry. Added
+  current-activity and timeline projections with an honest idle message, correlation ids in every
+  tool result, startup cancellation of orphaned events, and 12 observability tests.
+
 - Phase 3 MCP tools: 24 tools covering projects (create/list/brief/activate/update/stage/archive),
   tasks (create/update/list plus bulk preview-and-apply with single-use expiring confirmation
   tokens), decisions, checkpoints, context packages, artifacts with validation results, and

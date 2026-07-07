@@ -5,6 +5,7 @@ import {
   artifactVerificationStatusSchema,
   idListSchema,
   idSchema,
+  isDomainError,
   longTextSchema,
   nameSchema,
   projectStageSchema,
@@ -13,7 +14,13 @@ import {
   taskPrioritySchema,
   taskStatusSchema,
   textListSchema,
+  SETTING_ACTIVE_PROJECT_ID,
+  type Department,
 } from "@mission-control/domain";
+import {
+  createActivityEventService,
+  type ActivityEventService,
+} from "../services/activity-event-service.js";
 import { createProjectService } from "../services/project-service.js";
 import { createTaskService } from "../services/task-service.js";
 import { createRecordService } from "../services/record-service.js";
@@ -27,22 +34,68 @@ export const SERVER_VERSION = "0.1.0";
 // The MCP adapter stays thin (docs/SYSTEM_ARCHITECTURE.md): declare tools,
 // validate input, call a service, shape the structured result. Every
 // description states its side effects so hosts and users can judge a call
-// before approving it. Department mappings become live in Phase 4's event
-// layer; they are declared here in _meta for forward compatibility.
+// before approving it. Every call runs under an activity-event lifecycle
+// (docs/MCP_OBSERVABILITY_MODEL.md): one persisted event per tool request,
+// accurate terminal status, and open waiting events for pending approvals.
 
 interface ToolSpec<Shape extends z.ZodRawShape> {
   title: string;
   description: string;
-  department: string;
+  department: Department;
   inputSchema: Shape;
 }
 
-export function createMissionControlServer(ctx: ServiceContext): McpServer {
+// User-facing activity labels (docs/MCP_OBSERVABILITY_MODEL.md). Technical
+// tool names stay available in the event record.
+const ACTIVITY_LABELS: Record<string, string> = {
+  create_project: "Creating a project",
+  list_projects: "Listing projects",
+  get_project_brief: "Loading the project brief",
+  set_active_project: "Switching the active project",
+  update_project: "Updating project details",
+  update_project_stage: "Updating the project stage",
+  archive_project: "Archiving a project",
+  create_task: "Creating a task",
+  update_task: "Updating a task",
+  list_tasks: "Listing tasks",
+  preview_bulk_task_update: "Previewing a bulk task update",
+  apply_bulk_task_update: "Applying a bulk task update",
+  record_decision: "Recording a project decision",
+  list_decisions: "Listing decisions",
+  save_checkpoint: "Saving a project checkpoint",
+  get_latest_checkpoint: "Loading the latest checkpoint",
+  prepare_project_context: "Preparing project context",
+  register_artifact: "Registering an artifact",
+  list_artifacts: "Listing artifacts",
+  mark_artifact_verified: "Recording artifact verification",
+  record_validation_result: "Recording a validation result",
+  export_project: "Packaging a project export",
+  preview_project_import: "Previewing a project import",
+  apply_project_import: "Applying a project import",
+};
+
+// Preview tools open a Security Gate waiting event bound to their token;
+// apply tools resolve it.
+const APPROVAL_WAIT_LABELS: Record<string, string> = {
+  preview_bulk_task_update: "Awaiting approval: bulk task update",
+  preview_project_import: "Awaiting approval: project import",
+};
+const APPROVAL_CONSUMING_TOOLS = new Set(["apply_bulk_task_update", "apply_project_import"]);
+
+function isTokenRejection(error: unknown): boolean {
+  return isDomainError(error) && /confirmation token was rejected/.test(error.message);
+}
+
+export function createMissionControlServer(
+  ctx: ServiceContext,
+  options?: { activity?: ActivityEventService },
+): McpServer {
   const projects = createProjectService(ctx);
   const tasks = createTaskService(ctx);
   const records = createRecordService(ctx);
   const contextPackages = createContextPackageService(ctx);
   const importExport = createImportExportService(ctx);
+  const activity = options?.activity ?? createActivityEventService(ctx);
 
   const server = new McpServer({ name: "claude-mission-control", version: SERVER_VERSION });
 
@@ -63,10 +116,76 @@ export function createMissionControlServer(ctx: ServiceContext): McpServer {
         _meta: { missionControl: { department: spec.department } },
       },
       ((input: z.infer<z.ZodObject<Shape>>): CallToolResult => {
+        const raw = input as Record<string, unknown>;
+        const displayLabel = ACTIVITY_LABELS[name] ?? spec.title;
+        // Events may only reference projects that actually exist; an invalid
+        // input id still fails inside the handler with the proper error.
+        const candidateProjectId =
+          typeof raw.projectId === "string"
+            ? raw.projectId
+            : ctx.settings.get(SETTING_ACTIVE_PROJECT_ID);
+        const projectId =
+          candidateProjectId !== null && ctx.projects.getById(candidateProjectId) !== null
+            ? candidateProjectId
+            : null;
+        const relatedTaskIds: string[] = [];
+        if (typeof raw.taskId === "string") relatedTaskIds.push(raw.taskId);
+        if (Array.isArray(raw.affected)) {
+          for (const entry of raw.affected) {
+            const id = (entry as { id?: unknown } | null)?.id;
+            if (typeof id === "string") relatedTaskIds.push(id);
+          }
+        }
+        const token = typeof raw.confirmationToken === "string" ? raw.confirmationToken : null;
+
         try {
-          const { text, payload } = handler(input);
-          return okResult(text, payload);
+          const { text, payload, event } = activity.run(
+            {
+              toolName: name,
+              displayLabel,
+              department: spec.department,
+              projectId,
+              relatedTaskIds,
+            },
+            () => handler(input),
+          );
+
+          const waitLabel = APPROVAL_WAIT_LABELS[name];
+          if (waitLabel !== undefined) {
+            const preview = (
+              payload as { preview?: { confirmationToken?: unknown; expiresAt?: unknown } }
+            ).preview;
+            if (
+              preview &&
+              typeof preview.confirmationToken === "string" &&
+              typeof preview.expiresAt === "string"
+            ) {
+              activity.beginApprovalWait(preview.confirmationToken, preview.expiresAt, {
+                toolName: name,
+                displayLabel: waitLabel,
+                projectId: event.projectId,
+                relatedTaskIds,
+              });
+            }
+          }
+          if (APPROVAL_CONSUMING_TOOLS.has(name) && token !== null) {
+            activity.resolveApprovalWait(token, "succeeded", {
+              resultSummary: "Approved and applied.",
+            });
+          }
+
+          return okResult(text, payload, { eventId: event.id, correlationId: event.correlationId });
         } catch (error) {
+          // A burnt token means the previewed change failed after approval;
+          // a rejected token leaves the waiting event for the expiry sweep.
+          if (APPROVAL_CONSUMING_TOOLS.has(name) && token !== null && !isTokenRejection(error)) {
+            activity.resolveApprovalWait(token, "failed", {
+              errorCode: isDomainError(error) ? error.code : "UNEXPECTED_INTERNAL_ERROR",
+              errorSummary: isDomainError(error)
+                ? error.message
+                : "An unexpected internal error occurred.",
+            });
+          }
           return errorResult(error);
         }
         // The SDK's callback generic does not unify with a locally inferred

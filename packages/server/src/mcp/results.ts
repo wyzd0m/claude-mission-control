@@ -8,10 +8,19 @@ import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 // The text content mirrors the structured content so hosts without
 // structured-content support still get the full information.
 
-export function okResult(text: string, payload: Record<string, unknown>): CallToolResult {
+export interface ActivityRef {
+  eventId: string;
+  correlationId: string;
+}
+
+export function okResult(
+  text: string,
+  payload: Record<string, unknown>,
+  activity?: ActivityRef,
+): CallToolResult {
   return {
     content: [{ type: "text", text }],
-    structuredContent: { ok: true, ...payload },
+    structuredContent: { ok: true, ...payload, ...(activity ? { activity } : {}) },
   };
 }
 
@@ -34,9 +43,26 @@ export function errorResult(error: unknown): CallToolResult {
     console.error("[mission-control] unexpected tool error", error);
   }
 
+  // Attached by the activity event service when the failure happened inside
+  // a tracked tool operation (docs/SYSTEM_ARCHITECTURE.md error contract).
+  const correlationId =
+    error !== null && typeof error === "object"
+      ? (error as { activityCorrelationId?: string }).activityCorrelationId
+      : undefined;
+
   return {
     isError: true,
-    content: [{ type: "text", text: `${code}: ${message} Recovery: ${recovery}` }],
-    structuredContent: { ok: false, error: { code, message, recovery } },
+    content: [
+      {
+        type: "text",
+        text:
+          `${code}: ${message} Recovery: ${recovery}` +
+          (correlationId ? ` (correlation ${correlationId})` : ""),
+      },
+    ],
+    structuredContent: {
+      ok: false,
+      error: { code, message, recovery, ...(correlationId ? { correlationId } : {}) },
+    },
   };
 }
