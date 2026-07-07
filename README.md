@@ -36,19 +36,28 @@ sample data). A ready-to-import example project lives in
 
 ## Monitor window
 
-Want Mission Control visible the whole time Claude works, outside the chat? Run:
+Want Mission Control visible the whole time Claude works, outside the chat?
+
+**Easiest (Windows):** double-click **`start-monitor.cmd`** in this folder, or create a desktop
+shortcut to it (the first run installs dependencies and builds the dashboard, then every run just
+opens the window). Keep the black console window open while you want the monitor running; close it
+to stop.
+
+**From a terminal (any platform):**
 
 ```bash
 npm run monitor
 ```
 
-This opens a **read-only monitor window** in your browser (127.0.0.1 only) that reads the shared
-local database directly and live-updates as Claude uses Mission Control tools — independent of
-Claude Desktop's conversation lifecycle, so it stays up across restarts and new chats. Changes are
-made in the conversation; the monitor is a pure observer. Keep it on a second screen and add a
-line like _"keep Mission Control updated as you work"_ to your projects' instructions so the
-facility reflects progress continuously. (`CMC_MONITOR_PORT` changes the port;
-`--no-open` skips launching the browser.)
+Either way, a **read-only monitor window** opens in your browser at `http://127.0.0.1:8642/?monitor`
+(loopback only). It reads the shared local database directly and live-updates as Claude uses
+Mission Control tools — independent of Claude Desktop's conversation lifecycle, so it stays up
+across restarts and new chats. Changes are made in the conversation; the monitor is a pure
+observer.
+
+Keep it on a second screen and add a line like _"keep Mission Control updated as you work"_ to your
+projects' instructions so the facility reflects progress continuously. (`CMC_MONITOR_PORT` changes
+the port; `--no-open` skips launching the browser.)
 
 ## Install
 

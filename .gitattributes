@@ -2,6 +2,10 @@
 # formatting checks behave identically on Windows, macOS, and Linux.
 * text=auto eol=lf
 
+# Windows batch files must use CRLF or cmd.exe can misparse them.
+*.cmd text eol=crlf
+*.bat text eol=crlf
+
 # Binary files
 *.png binary
 *.jpg binary
