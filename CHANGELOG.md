@@ -6,7 +6,20 @@ Version 1.0.0 is the first one-click release described in `docs/IMPLEMENTATION_R
 
 ## [Unreleased]
 
+## [0.1.0] — 2026-07-07
+
+First complete version: a one-click Claude Desktop extension with structured project tools and a
+truthful isometric activity visualization. Highlights: 27 MCP tools with stable structured
+results, local SQLite storage with migrations and automatic pre-upgrade backups, a persisted
+activity-event lifecycle behind every tool call, preview/approve confirmation tokens for bulk and
+destructive changes, an embedded React dashboard usable without 3D, the procedural low-poly
+facility with event-driven robot animation, end-to-end workflow coverage, and a ~650 kB `.mcpb`
+bundle smoke-tested in CI. Known limitations are listed in the README.
+
 ### Added
+
+- Phase 10 portfolio polish: final README with architecture diagram, MIT license, importable
+  example project (`examples/demo-project.json`), portfolio notes, and the 0.1.0 release cut.
 
 - Phase 9 packaging: production `.mcpb` bundle (`npm run release`) — esbuild-bundled CommonJS
   server (no node_modules, node:sqlite built in), single-file dashboard, validated manifest;

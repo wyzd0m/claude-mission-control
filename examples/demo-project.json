@@ -1,0 +1,102 @@
+{
+  "formatVersion": 1,
+  "exportedAt": "2026-07-07T07:48:07.365Z",
+  "project": {
+    "id": "64bd1474-86e9-4976-967c-1968f07d78d2",
+    "name": "Demo: Field Notes App",
+    "description": "A small example project showing how Mission Control records work.",
+    "goal": "Ship a note-taking app for field researchers",
+    "definitionOfDone": "Offline capture, sync, and export all pass acceptance tests",
+    "currentStage": "building",
+    "status": "active",
+    "revision": 1,
+    "createdAt": "2026-07-07T07:48:07.361Z",
+    "updatedAt": "2026-07-07T07:48:07.361Z"
+  },
+  "tasks": [
+    {
+      "id": "ab8172d9-3c7b-4945-aeec-18ae7709bac2",
+      "projectId": "64bd1474-86e9-4976-967c-1968f07d78d2",
+      "title": "Design offline capture flow",
+      "description": "",
+      "status": "done",
+      "priority": "high",
+      "stage": "planning",
+      "blockedReason": null,
+      "parentTaskId": null,
+      "revision": 2,
+      "createdAt": "2026-07-07T07:48:07.362Z",
+      "updatedAt": "2026-07-07T07:48:07.363Z",
+      "completedAt": "2026-07-07T07:48:07.363Z"
+    },
+    {
+      "id": "8d2b7b49-a212-4b5d-8a4b-af5cf1ddb55d",
+      "projectId": "64bd1474-86e9-4976-967c-1968f07d78d2",
+      "title": "Implement note editor",
+      "description": "",
+      "status": "in_progress",
+      "priority": "high",
+      "stage": "building",
+      "blockedReason": null,
+      "parentTaskId": null,
+      "revision": 2,
+      "createdAt": "2026-07-07T07:48:07.363Z",
+      "updatedAt": "2026-07-07T07:48:07.363Z",
+      "completedAt": null
+    },
+    {
+      "id": "d3922b47-800b-491e-a017-f76e196730f9",
+      "projectId": "64bd1474-86e9-4976-967c-1968f07d78d2",
+      "title": "Sync engine spike",
+      "description": "",
+      "status": "blocked",
+      "priority": "medium",
+      "stage": "building",
+      "blockedReason": "Waiting on backend credentials",
+      "parentTaskId": null,
+      "revision": 2,
+      "createdAt": "2026-07-07T07:48:07.363Z",
+      "updatedAt": "2026-07-07T07:48:07.363Z",
+      "completedAt": null
+    }
+  ],
+  "decisions": [
+    {
+      "id": "30f53966-e4c3-411a-9673-89908e99ce6d",
+      "projectId": "64bd1474-86e9-4976-967c-1968f07d78d2",
+      "summary": "Store notes locally in SQLite",
+      "rationale": "Field use means unreliable connectivity; local-first keeps capture instant.",
+      "alternativesConsidered": ["Cloud-only storage", "Plain JSON files"],
+      "relatedTaskIds": ["ab8172d9-3c7b-4945-aeec-18ae7709bac2"],
+      "createdAt": "2026-07-07T07:48:07.364Z"
+    }
+  ],
+  "artifacts": [
+    {
+      "id": "007cb01e-442b-4bd7-a2d9-760da909e14c",
+      "projectId": "64bd1474-86e9-4976-967c-1968f07d78d2",
+      "name": "editor.tsx",
+      "type": "file",
+      "pathOrReference": "src/editor.tsx",
+      "description": "Note editor component",
+      "relatedTaskIds": ["8d2b7b49-a212-4b5d-8a4b-af5cf1ddb55d"],
+      "verificationStatus": "verified",
+      "verificationNote": "Unit tests passed (42/42)",
+      "verifiedAt": "2026-07-07T07:48:07.364Z",
+      "createdAt": "2026-07-07T07:48:07.364Z"
+    }
+  ],
+  "checkpoints": [
+    {
+      "id": "d8a59269-89b2-4fa5-8ae9-83a0191f9e3b",
+      "projectId": "64bd1474-86e9-4976-967c-1968f07d78d2",
+      "summary": "Editor in progress, sync blocked",
+      "completedWork": ["Offline capture flow designed"],
+      "openWork": ["Note editor implementation", "Sync engine spike"],
+      "decisions": ["Local-first SQLite storage"],
+      "blockers": ["Backend credentials pending"],
+      "recommendedNextAction": "Finish the note editor while credentials are pending",
+      "createdAt": "2026-07-07T07:48:07.364Z"
+    }
+  ]
+}

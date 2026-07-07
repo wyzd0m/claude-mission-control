@@ -1,125 +1,135 @@
 # Claude Mission Control
 
-> **Status:** Phase 1 (repository foundation) complete. Phase 0 platform proof verified on Claude Desktop 1.8555.2 with one documented host limitation (see [`poc/README.md`](poc/README.md)).
+A local-first project workspace for Claude Desktop. Claude gets structured tools for projects,
+tasks, decisions, checkpoints, and handoffs; you get a dashboard with a low-poly isometric
+facility where a small robot truthfully acts out every Mission Control operation.
 
-Claude Mission Control is a proposed local-first desktop extension for Claude Desktop. It gives Claude structured project-management tools through MCP and presents observable tool activity through a clean, futuristic, low-poly isometric facility.
+> **Status:** Version 0.1.0. All ten build phases complete; installed and verified on Claude
+> Desktop (Windows 11). Independent portfolio project — not affiliated with or endorsed by
+> Anthropic.
 
-The project follows three fixed boundaries:
+- **One-click install** — a single `.mcpb` file. No API key, no Node/Python, no config editing.
+- **Local-first** — everything lives in a SQLite database in your user profile. No cloud, no
+  telemetry, no network access.
+- **Truthful by construction** — the visualization renders only persisted tool events and saved
+  project state. It never claims to show Claude's reasoning, and unknown progress stays unknown.
 
-1. **Claude Desktop remains the AI interface.**
-2. **Mission Control owns project state and workflows, not Claude conversations or hidden reasoning.**
-3. **Version 1 ships as a one-click desktop extension bundle with an embedded MCP App dashboard.**
+## What it does
 
-The extension will not require an Anthropic API key. Users work through their existing Claude Desktop account, while Mission Control provides local tools, local storage, project state, and an interactive visual interface.
+Ask Claude things like:
 
-## Core product idea
+> "Create a project called Demo with the goal of shipping v1, and plan the first tasks."
+> "Record the decision to use SQLite, with the alternatives we discussed."
+> "Save a checkpoint so we can continue tomorrow." — then, in a new conversation:
+> "Get the latest checkpoint and prepare the project context."
 
-Claude operates from a central command core and dispatches small robots into specialized rooms when Mission Control tools are used. Each room represents a category of observable work:
+Claude uses 27 Mission Control tools; every call becomes a persisted activity event. The
+dashboard (opened with _"open Mission Control"_) shows the project header and stage bar, an exact
+activity panel, an event timeline, task/decision/checkpoint views — and the facility, where the
+robot dispatches from the Command Core, works in the department that matches the operation, and
+waits at the Security Gate whenever a bulk or destructive change needs your approval.
 
-- Planning Bay
-- Research Archive
-- Build Workshop
-- Testing Lab
-- Memory Vault
-- Security Gate
-- Delivery Dock
+Try the layout in a plain browser: `npm run build:dashboard`, then
+`node poc/scripts/serve-dashboard.mjs` and open `http://localhost:5181/?demo` (clearly labeled
+sample data). A ready-to-import example project lives in
+[`examples/demo-project.json`](examples/demo-project.json).
 
-The visualization represents real Mission Control events such as a tool starting, completing, failing, waiting for approval, or updating saved project state. It does **not** claim to reveal Claude's private reasoning.
+## Install
 
-## Version 1 outcome
+See [`docs/INSTALL.md`](docs/INSTALL.md). Short version: build with `npm run release`, then in
+Claude Desktop go to Settings → Extensions → Advanced settings → Install Extension and pick
+`dist/claude-mission-control.mcpb`.
 
-A user should be able to:
+## Architecture
 
-- Install one extension package without manually editing JSON configuration.
-- Open Mission Control from Claude Desktop.
-- Create and manage local projects.
-- Track stages, tasks, decisions, blockers, checkpoints, and artifacts.
-- See an isometric facility react to real Mission Control events.
-- Review a precise activity panel and timeline beside the visual scene.
-- Export and import project data.
-- Use the project without supplying an API key.
+```mermaid
+flowchart TD
+    A[Claude Desktop host] -->|"MCP (stdio)"| B[MCP adapter\n27 tools, thin]
+    B --> C[Application services\nprojects · tasks · records · context · import/export]
+    C --> D[Domain core\nrules + Zod schemas\nframework-free]
+    C --> E[(SQLite\nnode:sqlite, migrations,\npre-upgrade backups)]
+    B --> F[Activity event service\nqueued → working → terminal\napproval waits · projections]
+    F --> E
+    B --> G[UI state projection\nDashboardState read model]
+    G --> H[React dashboard\nMCP App, single HTML file]
+    H --> I[Facility renderer\npure SceneState + animator\nThree.js / R3F]
+```
 
-## Planning documents
+- **Domain core** (`packages/domain`) — records, rules, and the event state machine. Imports no
+  framework; ESLint fails the build if it tries.
+- **Server** (`packages/server`) — application services, SQLite storage, the activity/event
+  layer, and the MCP adapter. Every tool validates input and returns a stable
+  `{ ok, error: { code, message, recovery } }` contract.
+- **UI** (`packages/ui`) — the dashboard and the 3D facility. It receives a read-only projection
+  and animates a pure, unit-tested scene state; ambient motion is never presented as work.
 
-| Document                                                                         | Purpose                                        |
-| -------------------------------------------------------------------------------- | ---------------------------------------------- |
-| [`CLAUDE.md`](CLAUDE.md)                                                         | Permanent build instructions for Claude        |
-| [`docs/PROJECT_VISION.md`](docs/PROJECT_VISION.md)                               | Product identity, users, and value             |
-| [`docs/PRODUCT_REQUIREMENTS.md`](docs/PRODUCT_REQUIREMENTS.md)                   | Version 1 scope and requirements               |
-| [`docs/VISUAL_DESIGN.md`](docs/VISUAL_DESIGN.md)                                 | Facility, UI layout, rooms, robots, and states |
-| [`docs/TECHNOLOGY_PLAN.md`](docs/TECHNOLOGY_PLAN.md)                             | Proposed stack and technical choices           |
-| [`docs/SYSTEM_ARCHITECTURE.md`](docs/SYSTEM_ARCHITECTURE.md)                     | Modules and data flow                          |
-| [`docs/MCP_OBSERVABILITY_MODEL.md`](docs/MCP_OBSERVABILITY_MODEL.md)             | What can and cannot be visualized              |
-| [`docs/TOOL_AND_EVENT_MODEL.md`](docs/TOOL_AND_EVENT_MODEL.md)                   | Tool categories and event contract             |
-| [`docs/INSTALLATION_AND_DISTRIBUTION.md`](docs/INSTALLATION_AND_DISTRIBUTION.md) | One-click packaging strategy                   |
-| [`docs/IMPLEMENTATION_ROADMAP.md`](docs/IMPLEMENTATION_ROADMAP.md)               | Claude-led phased build plan                   |
-| [`docs/TESTING_STRATEGY.md`](docs/TESTING_STRATEGY.md)                           | Functional, visual, and installer tests        |
-| [`docs/ACCEPTANCE_CRITERIA.md`](docs/ACCEPTANCE_CRITERIA.md)                     | Definition of done                             |
-| [`docs/RISKS_AND_LIMITATIONS.md`](docs/RISKS_AND_LIMITATIONS.md)                 | Product and technical risks                    |
-| [`docs/DECISION_LOG.md`](docs/DECISION_LOG.md)                                   | Confirmed decisions                            |
-| [`docs/RESEARCH_NOTES.md`](docs/RESEARCH_NOTES.md)                               | Current platform references                    |
+Key architectural decisions are recorded in [`docs/DECISION_LOG.md`](docs/DECISION_LOG.md)
+(D-001 through D-024). The eight end-to-end workflows are documented in
+[`docs/WORKFLOWS.md`](docs/WORKFLOWS.md).
 
-## Working identity
+## Honesty model
 
-- Repository: `claude-mission-control`
-- Product name: **Claude Mission Control**
-- Positioning: **A local-first MCP workspace extension for Claude Desktop**
-- Disclaimer: This is an independent portfolio project and is not affiliated with or endorsed by Anthropic.
+The facility is an interface for verified events, not an AI mind reader
+([`docs/MCP_OBSERVABILITY_MODEL.md`](docs/MCP_OBSERVABILITY_MODEL.md)):
 
-## Current phase
+- Rooms activate only for persisted Mission Control events; idle says
+  _"Waiting for the next observable Mission Control activity."_
+- Progress appears only when an operation explicitly reports countable steps, or as
+  _project_ progress computed from saved task data.
+- Failures stay visible with their exact stable error code; cancellation is distinct from
+  success and failure.
+- A preview is never shown as completed work — it waits, amber, at the Security Gate.
 
-**Phase 9 — Packaging** is built and awaiting the manual clean-install test: `npm run release`
-produces `dist/claude-mission-control.mcpb` (validated manifest, bundled server with zero runtime
-dependencies, self-contained dashboard), verified by an automated stdio smoke test in CI. Install
-instructions, data locations, update and uninstall guidance: [`docs/INSTALL.md`](docs/INSTALL.md).
+## Known limitations
 
-**Phase 8 — End-to-end workflows** is complete: all eight required scenarios (plan a project,
-work tasks, record decisions and validation results, checkpoint, continue in a new conversation,
-export/import, bulk preview/approve) run as repeatable tests through the real MCP client, each
-with a documented visual mapping and failure behavior — see [`docs/WORKFLOWS.md`](docs/WORKFLOWS.md).
+- **Host compatibility moves fast.** MCP Apps support in Claude Desktop is new; re-verify after
+  app updates (an earlier host version did not surface extension tools in chat — documented in
+  [`poc/README.md`](poc/README.md)).
+- Live updates use 2.5-second polling, so the facility reacts within a few seconds, not
+  instantly. Fast consecutive operations are replayed sequentially (queue capped; the timeline
+  is always authoritative).
+- One robot, by design (D-011). In-dashboard approval buttons are deferred — approvals happen in
+  the conversation.
+- macOS is expected to work (no native dependencies) but has not been tested on hardware.
 
-**Phase 7 — Event-driven animation** is complete: the robot now replays real persisted events —
-dispatching from the Command Core, travelling the paths, working in the department, and flashing
-the exact outcome — while open approvals hold it at the Security Gate. The dashboard polls the
-read model every 2.5 s while visible, reloads restore quiet state without replaying history, and
-reduced motion falls back to static placement.
+## Development
 
-**Phase 6 — Static facility** is complete: a procedural low-poly isometric facility (Command Core,
-seven department rooms, paths, one robot — all code-generated primitives) renders inside the
-dashboard from a deterministic scene state. Rooms react only to persisted events and the saved
-stage; reduce-motion and a text-only 2D fallback are built in.
+```bash
+npm install
+npm run verify     # typecheck + lint + format + 136 tests
+npm run release    # build bundle + stdio smoke test + pack .mcpb
+npm run mcp:inspect  # interactive tool testing with MCP Inspector
+```
 
-**Phase 5 — Conventional dashboard** is complete: a React MCP App rendered by
-`open_mission_control` shows the project header, stage bar, exact activity panel, event timeline,
-tasks, decisions, checkpoints, and diagnostics — fully usable without any 3D. Inspect it locally
-with `npm run build:dashboard` and `node poc/scripts/serve-dashboard.mjs` (open with `?demo`).
+Full guide: [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md). CI runs the whole pipeline — including
+a smoke test that drives the packed bundle exactly the way Claude Desktop launches it — on
+Windows and Linux.
 
-**Phase 4 — Event and observability layer** is complete: every tool call persists one truthful
-activity event (queued → working → succeeded/failed) with a human-readable label and department
-mapping; pending approvals wait at the Security Gate until applied, conflicted, or expired;
-current-activity and timeline projections expose exactly what happened, and the idle state says
-only that no observable activity exists.
+## Project documentation
 
-**Phase 3 — MCP tools** is complete: 24 structured tools for projects, tasks (including bulk
-changes behind a preview/approve confirmation-token flow), decisions, checkpoints, context
-packages, artifacts with validation results, and export/import. Every tool validates input,
-states its side effects, and returns a stable `{ ok, error }` contract. Runs on stdio; test it
-interactively with `npm run mcp:inspect`.
+| Document                                                             | Purpose                         |
+| -------------------------------------------------------------------- | ------------------------------- |
+| [`docs/PROJECT_BRIEF.md`](docs/PROJECT_BRIEF.md)                     | Approved product brief          |
+| [`docs/PRODUCT_REQUIREMENTS.md`](docs/PRODUCT_REQUIREMENTS.md)       | Version 1 scope                 |
+| [`docs/SYSTEM_ARCHITECTURE.md`](docs/SYSTEM_ARCHITECTURE.md)         | Modules and data flow           |
+| [`docs/VISUAL_DESIGN.md`](docs/VISUAL_DESIGN.md)                     | Facility and UI design          |
+| [`docs/MCP_OBSERVABILITY_MODEL.md`](docs/MCP_OBSERVABILITY_MODEL.md) | What may be displayed           |
+| [`docs/TOOL_AND_EVENT_MODEL.md`](docs/TOOL_AND_EVENT_MODEL.md)       | Tool and event contracts        |
+| [`docs/WORKFLOWS.md`](docs/WORKFLOWS.md)                             | End-to-end scenarios            |
+| [`docs/INSTALL.md`](docs/INSTALL.md)                                 | Install, update, uninstall      |
+| [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md)                         | Developer guide                 |
+| [`docs/DECISION_LOG.md`](docs/DECISION_LOG.md)                       | Architectural decisions         |
+| [`docs/IMPLEMENTATION_ROADMAP.md`](docs/IMPLEMENTATION_ROADMAP.md)   | The ten build phases            |
+| [`docs/PORTFOLIO_NOTES.md`](docs/PORTFOLIO_NOTES.md)                 | Resume bullets, interview notes |
+| [`CHANGELOG.md`](CHANGELOG.md)                                       | Release notes                   |
 
-**Phase 2 — Domain and database** is complete: framework-free domain models (projects, tasks,
-decisions, artifacts, checkpoints, activity events with the canonical status state machine),
-stable error codes, a validated portable export format, and SQLite storage through the Node.js
-built-in `node:sqlite` driver with versioned migrations, optimistic concurrency, transactional
-import/export, and backups. See [`docs/DECISION_LOG.md`](docs/DECISION_LOG.md) (D-018, D-019).
+## History
 
-**Phase 1 — Repository foundation** is complete: npm workspaces (`packages/domain`, `packages/server`,
-`packages/ui`), strict TypeScript project references, ESLint with enforced architecture boundaries,
-Prettier, Vitest, and CI on Windows and Linux. See [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md).
+Built phase-by-phase by Claude under the engineering contract in [`CLAUDE.md`](CLAUDE.md):
+platform proof (Phase 0, kept in [`poc/`](poc/README.md)), repository foundation, domain and
+database, MCP tools, event layer, dashboard, static facility, event-driven animation, end-to-end
+workflows, packaging, and this polish pass. Each phase ended with tests, CI, and a review stop.
 
-**Phase 0 — Platform proof** passed on Claude Desktop 1.8555.2 (Windows 11): the bundled server,
-tools, persistence, and single-file UI all verified. One host limitation is documented in
-[`poc/README.md`](poc/README.md): chat conversations currently do not surface locally installed
-extension tools to the model (Claude Code sessions in the same app do). Re-tested after each
-Claude Desktop update.
+## License
 
-Next: **Phase 10 — Portfolio polish** (after the clean-install test passes).
+[MIT](LICENSE)
