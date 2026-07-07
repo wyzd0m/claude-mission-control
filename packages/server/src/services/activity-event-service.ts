@@ -4,6 +4,7 @@ import {
   isTerminalEventStatus,
   isDomainError,
   type ActivityEvent,
+  type CurrentActivity,
   type Department,
 } from "@mission-control/domain";
 import type { ServiceContext } from "./service-context.js";
@@ -34,11 +35,7 @@ export interface ActivityMeta {
   relatedTaskIds?: string[];
 }
 
-export interface CurrentActivity {
-  openEvents: ActivityEvent[];
-  idle: boolean;
-  idleMessage: string | null;
-}
+export type { CurrentActivity };
 
 interface ApprovalWait {
   eventId: string;

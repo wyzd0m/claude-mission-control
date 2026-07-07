@@ -8,6 +8,14 @@ Version 1.0.0 is the first one-click release described in `docs/IMPLEMENTATION_R
 
 ### Added
 
+- Phase 5 conventional dashboard: a React MCP App (single-file HTML) with project selector, stage
+  bar, exact current-activity panel, event timeline, task/decision/checkpoint views with forms,
+  diagnostics, and an error banner showing stable codes with recovery hints. New
+  `open_mission_control` MCP App tool and `get_mission_control_state` read-model tool (dashboard
+  reads stay out of the timeline — D-022). Host bridge abstraction with a fake for tests, `?demo`
+  sample-data mode for layout inspection, jsdom component tests (14 new tests, 113 total), and a
+  responsive narrow layout.
+
 - Phase 4 event and observability layer: every tool call now runs under a persisted
   activity-event lifecycle with accurate terminal states, human-readable labels, and live
   department mapping. Pending approvals appear as open Security Gate `waiting_for_input` events

@@ -137,6 +137,21 @@ Resolves the library question left open by D-014. The storage adapter uses `node
 - Verified by the Phase 2 test suite: migrations, transactions, foreign keys, `VACUUM INTO`
   backups, and WAL journaling all work on Node 24.
 
+## D-022 — Dashboard state reads are not activity events
+
+**Status:** Accepted
+
+`open_mission_control` and `get_mission_control_state` are pure reads that exist to render the
+dashboard. Recording an event for every dashboard refresh would flood the timeline with
+self-observation noise (`docs/MCP_OBSERVABILITY_MODEL.md`: "Do not flood the host") and recurse —
+reading state would change the state being read. This is a deliberate, documented exception to
+"every tool produces an event": both tools mutate nothing and their descriptions say so.
+
+Related Phase 5 choices: the dashboard renders one read model (`DashboardState`, defined in the
+domain package so the UI needs no server dependency); approvals are displayed as waiting events
+with a hint to approve in the conversation (in-dashboard approval buttons are deferred); `?demo`
+renders clearly labeled sample data for layout inspection outside a host.
+
 ## D-021 — Phase 4 event lifecycle semantics
 
 **Status:** Accepted

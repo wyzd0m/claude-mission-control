@@ -18,9 +18,16 @@ import {
   type Department,
 } from "@mission-control/domain";
 import {
+  registerAppTool,
+  registerAppResource,
+  RESOURCE_MIME_TYPE,
+} from "@modelcontextprotocol/ext-apps/server";
+import {
   createActivityEventService,
   type ActivityEventService,
 } from "../services/activity-event-service.js";
+import { createUiStateService } from "../services/ui-state-service.js";
+import { DASHBOARD_RESOURCE_URI, readDashboardHtml } from "./ui-resource.js";
 import { createProjectService } from "../services/project-service.js";
 import { createTaskService } from "../services/task-service.js";
 import { createRecordService } from "../services/record-service.js";
@@ -780,6 +787,78 @@ export function createMissionControlServer(
             checkpoints: bundle.checkpoints.length,
           },
         },
+      };
+    },
+  );
+
+  // ----------------------------------------------------------- dashboard app
+  //
+  // The dashboard tools are registered outside the event-wrapped helper on
+  // purpose: they are pure state reads for rendering the UI. Recording an
+  // event for every dashboard refresh would flood the timeline with
+  // self-observation noise (docs/MCP_OBSERVABILITY_MODEL.md: "Do not flood
+  // the host"; decision D-022). They mutate nothing.
+
+  const uiState = createUiStateService(ctx, activity, SERVER_VERSION);
+
+  registerAppTool(
+    server,
+    "open_mission_control",
+    {
+      title: "Open Mission Control",
+      description:
+        "Opens the Mission Control dashboard: project header, stage, exact activity panel, and event timeline. No side effects. Shows only saved project state and observable Mission Control events.",
+      inputSchema: {},
+      _meta: {
+        ui: { resourceUri: DASHBOARD_RESOURCE_URI },
+        missionControl: { department: "command_core" },
+      },
+    },
+    () => {
+      try {
+        const state = uiState.buildDashboardState();
+        return okResult(
+          state.activeProject
+            ? `Mission Control opened. Active project: "${state.activeProject.name}" (stage ${state.activeProject.currentStage}).`
+            : "Mission Control opened. No active project yet.",
+          { state },
+        );
+      } catch (error) {
+        return errorResult(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    "get_mission_control_state",
+    {
+      title: "Get Mission Control state",
+      description:
+        "Returns the dashboard read model: projects, active project, tasks, decisions, latest checkpoint, current activity, and recent event timeline. No side effects.",
+      inputSchema: {},
+      _meta: { missionControl: { department: "command_core" } },
+    },
+    () => {
+      try {
+        const state = uiState.buildDashboardState();
+        return okResult(`Mission Control state generated at ${state.generatedAt}.`, { state });
+      } catch (error) {
+        return errorResult(error);
+      }
+    },
+  );
+
+  registerAppResource(
+    server,
+    "Mission Control dashboard",
+    DASHBOARD_RESOURCE_URI,
+    { mimeType: RESOURCE_MIME_TYPE },
+    () => {
+      // Read lazily so the server starts even before the UI is built; the
+      // error carries a recovery hint instead of hiding behind a blank frame.
+      const html = readDashboardHtml();
+      return {
+        contents: [{ uri: DASHBOARD_RESOURCE_URI, mimeType: RESOURCE_MIME_TYPE, text: html }],
       };
     },
   );

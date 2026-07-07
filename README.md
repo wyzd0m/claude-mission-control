@@ -68,6 +68,11 @@ A user should be able to:
 
 ## Current phase
 
+**Phase 5 — Conventional dashboard** is complete: a React MCP App rendered by
+`open_mission_control` shows the project header, stage bar, exact activity panel, event timeline,
+tasks, decisions, checkpoints, and diagnostics — fully usable without any 3D. Inspect it locally
+with `npm run build:dashboard` and `node poc/scripts/serve-dashboard.mjs` (open with `?demo`).
+
 **Phase 4 — Event and observability layer** is complete: every tool call persists one truthful
 activity event (queued → working → succeeded/failed) with a human-readable label and department
 mapping; pending approvals wait at the Security Gate until applied, conflicted, or expired;
@@ -96,4 +101,4 @@ tools, persistence, and single-file UI all verified. One host limitation is docu
 extension tools to the model (Claude Code sessions in the same app do). Re-tested after each
 Claude Desktop update.
 
-Next: **Phase 5 — Conventional dashboard.**
+Next: **Phase 6 — Static facility (procedural low-poly isometric scene).**

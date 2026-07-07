@@ -5,7 +5,7 @@ export default tseslint.config(
   {
     // The PoC (poc/) is a frozen Phase 0 spike with its own toolchain.
     // Generated output and dependencies are never linted.
-    ignores: ["poc/**", "**/dist/**", "**/node_modules/**", "*.mcpb"],
+    ignores: ["poc/**", "**/dist/**", "**/dist-lib/**", "**/node_modules/**", "*.mcpb"],
   },
   js.configs.recommended,
   ...tseslint.configs.recommendedTypeChecked,
@@ -18,8 +18,8 @@ export default tseslint.config(
     },
   },
   {
-    // Scripts and config files at the root are not part of a TS project.
-    files: ["*.mjs", "*.ts"],
+    // Scripts and config files are not part of a TS project.
+    files: ["*.mjs", "*.ts", "packages/*/vite.config.ts"],
     ...tseslint.configs.disableTypeChecked,
   },
   {

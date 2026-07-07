@@ -17,6 +17,7 @@ export const ERROR_CODES = [
   "IMPORT_CONFLICT",
   "STORAGE_FAILURE",
   "STORAGE_CORRUPT",
+  "UI_RESOURCE_UNAVAILABLE",
 ] as const;
 
 export type ErrorCode = (typeof ERROR_CODES)[number];

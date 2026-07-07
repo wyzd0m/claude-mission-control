@@ -116,6 +116,8 @@ describe("tool discovery", () => {
         "export_project",
         "preview_project_import",
         "apply_project_import",
+        "open_mission_control",
+        "get_mission_control_state",
       ].sort(),
     );
     for (const tool of tools) {

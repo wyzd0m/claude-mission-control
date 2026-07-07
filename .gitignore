@@ -28,3 +28,6 @@ Thumbs.db
 
 # Machine-specific dev launch config
 .claude/launch.json
+
+# Package build output
+dist-lib/
