@@ -4,12 +4,20 @@ import { STAGE_LABELS } from "../stage-labels.js";
 interface Props {
   state: DashboardState;
   busy: boolean;
+  readOnly?: boolean;
   onSelectProject: (projectId: string) => void;
   onChangeStage: (stage: ProjectStage) => void;
   onRefresh: () => void;
 }
 
-export function ProjectHeader({ state, busy, onSelectProject, onChangeStage, onRefresh }: Props) {
+export function ProjectHeader({
+  state,
+  busy,
+  readOnly = false,
+  onSelectProject,
+  onChangeStage,
+  onRefresh,
+}: Props) {
   const { activeProject, projects, projectProgress } = state;
   return (
     <header className="panel header">
@@ -20,7 +28,7 @@ export function ProjectHeader({ state, busy, onSelectProject, onChangeStage, onR
         <select
           aria-label="Active project"
           value={state.activeProjectId ?? ""}
-          disabled={busy || projects.length === 0}
+          disabled={busy || readOnly || projects.length === 0}
           onChange={(e) => {
             if (e.target.value !== "") onSelectProject(e.target.value);
           }}
@@ -53,7 +61,7 @@ export function ProjectHeader({ state, busy, onSelectProject, onChangeStage, onR
             <select
               aria-label="Change project stage"
               value={activeProject.currentStage}
-              disabled={busy}
+              disabled={busy || readOnly}
               onChange={(e) => onChangeStage(e.target.value as ProjectStage)}
             >
               {PROJECT_STAGES.map((stage) => (

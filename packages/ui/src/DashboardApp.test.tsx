@@ -277,6 +277,21 @@ describe("DashboardApp", () => {
     }
   });
 
+  it("renders read-only monitor mode: banner shown, mutating controls gone", async () => {
+    const bridge = new FakeBridge(dashboardState());
+    render(<DashboardApp bridge={bridge} readOnly />);
+    expect(await screen.findByText("Monitor mode")).toBeDefined();
+    // No task form, no status selects; status shows as plain text.
+    expect(screen.queryByLabelText("New task")).toBeNull();
+    expect(screen.queryByLabelText("Status of task Build login screen")).toBeNull();
+    expect(screen.getByText("todo")).toBeDefined();
+    // Header selects are disabled.
+    const stageSelect = screen.getByLabelText<HTMLSelectElement>("Change project stage");
+    expect(stageSelect.disabled).toBe(true);
+    // Refresh stays available.
+    expect(screen.getByRole("button", { name: "Refresh" })).toBeDefined();
+  });
+
   it("shows diagnostics including server version and truthfulness note", async () => {
     const user = userEvent.setup();
     const bridge = new FakeBridge(dashboardState());

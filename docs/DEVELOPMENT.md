@@ -42,10 +42,11 @@ The Phase 0 PoC is intentionally not part of the workspace. To work with it:
 
 ## Running the MCP server locally
 
-| Command               | What it does                                                             |
-| --------------------- | ------------------------------------------------------------------------ |
-| `npm run mcp:dev`     | Starts the Mission Control MCP server on stdio (for host configuration)  |
-| `npm run mcp:inspect` | Opens MCP Inspector connected to the server for interactive tool testing |
+| Command               | What it does                                                              |
+| --------------------- | ------------------------------------------------------------------------- |
+| `npm run mcp:dev`     | Starts the Mission Control MCP server on stdio (for host configuration)   |
+| `npm run mcp:inspect` | Opens MCP Inspector connected to the server for interactive tool testing  |
+| `npm run monitor`     | Read-only monitor window on 127.0.0.1 reading the shared database (D-025) |
 
 The server stores data in the OS application-data directory
 (`%APPDATA%\ClaudeMissionControl` on Windows). Set `CMC_DATA_DIR` to point it at a scratch

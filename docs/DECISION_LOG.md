@@ -137,6 +137,32 @@ Resolves the library question left open by D-014. The storage adapter uses `node
 - Verified by the Phase 2 test suite: migrations, transactions, foreign keys, `VACUUM INTO`
   backups, and WAL journaling all work on Node 24.
 
+## D-025 — Standalone read-only monitor
+
+**Status:** Accepted (post-v1, version 0.2.0)
+
+The user wants Mission Control visible continuously while Claude works, outside the conversation.
+Options considered: serving from inside the MCP server (rejected: server lifecycle is tied to
+conversations, so an "always open" window would go stale), and a native always-on-top companion
+app (deferred until the monitor proves itself; it becomes a thin shell over this).
+
+Decision: a standalone monitor process (`npm run monitor`) that opens the shared local database
+directly and serves the existing dashboard plus a `/state` endpoint, bound to 127.0.0.1 only.
+Properties:
+
+- **Read-only by construction.** The monitor never calls mutating services, never reconciles
+  orphaned events (that is the extension's job), and the UI's monitor bridge refuses every
+  mutating tool with `MONITOR_READ_ONLY` and a hint to act in the conversation.
+- **Independent lifecycle.** The database is the source of truth; the monitor keeps working across
+  Claude Desktop restarts and conversation changes, updating via the existing 2.5 s poll.
+- **Local only, no API.** Binds strictly to loopback; still no Anthropic API usage, no telemetry.
+- **Embeddable.** `startMonitorServer()` is exported so a future native shell (tray app,
+  always-on-top window) wraps it without changes.
+
+Honesty note: the monitor shows only Mission Control's own persisted events and saved state. For
+continuous visibility while Claude works, projects should instruct Claude to keep Mission Control
+updated (mark tasks in progress/done, record decisions) as it goes.
+
 ## D-024 — Phase 7 live updates and replay animation
 
 **Status:** Accepted

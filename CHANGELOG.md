@@ -6,6 +6,15 @@ Version 1.0.0 is the first one-click release described in `docs/IMPLEMENTATION_R
 
 ## [Unreleased]
 
+### Added
+
+- Standalone monitor (D-025): `npm run monitor` opens an always-on, read-only Mission Control
+  window in your browser, outside Claude Desktop. It reads the shared local database directly
+  (127.0.0.1 only, independent of conversation lifecycle) and live-updates as Claude works —
+  verified end-to-end against the installed extension. Mutating controls are disabled with a
+  "make changes in the conversation" hint; a future native always-on-top shell can embed the
+  same `startMonitorServer()`. 10 new tests (146 total).
+
 ## [0.1.0] — 2026-07-07
 
 First complete version: a one-click Claude Desktop extension with structured project tools and a

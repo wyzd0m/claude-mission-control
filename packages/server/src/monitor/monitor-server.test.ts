@@ -1,0 +1,104 @@
+// Monitor server tests (D-025): serves the dashboard and the read model on
+// 127.0.0.1, reflects live database changes, and never mutates state — in
+// particular it must not cancel open events that belong to the running
+// extension.
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { createActivityEvent, transitionEvent, type DashboardState } from "@mission-control/domain";
+import { openDatabase } from "../storage/database.js";
+import { createServiceContext } from "../services/service-context.js";
+import { createProjectService } from "../services/project-service.js";
+import { startMonitorServer, type MonitorServer } from "./monitor-server.js";
+
+let tmpDir: string;
+let dbPath: string;
+let monitor: MonitorServer;
+
+beforeEach(async () => {
+  tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "cmc-monitor-test-"));
+  process.env.CMC_DATA_DIR = tmpDir;
+  dbPath = path.join(tmpDir, "monitor-test.db");
+  // Seed the database the way the extension would.
+  const { db } = openDatabase(dbPath);
+  const ctx = createServiceContext(db);
+  createProjectService(ctx).create({ name: "Monitored", goal: "Watch me" });
+  db.close();
+
+  monitor = await startMonitorServer({ port: 0, dbPath });
+});
+
+afterEach(async () => {
+  await monitor.close();
+  delete process.env.CMC_UI_HTML;
+  delete process.env.CMC_DATA_DIR;
+  fs.rmSync(tmpDir, { recursive: true, force: true });
+});
+
+function get(pathname: string) {
+  return fetch(`http://127.0.0.1:${monitor.port}${pathname}`);
+}
+
+describe("monitor server", () => {
+  it("serves the dashboard read model on /state", async () => {
+    const response = await get("/state");
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as { ok: boolean; state: DashboardState };
+    expect(body.ok).toBe(true);
+    expect(body.state.activeProject?.name).toBe("Monitored");
+    expect(body.state.currentActivity.idle).toBe(true);
+  });
+
+  it("reflects changes written by another connection (the extension)", async () => {
+    const { db } = openDatabase(dbPath);
+    const ctx = createServiceContext(db);
+    const event = createActivityEvent({
+      toolName: "create_task",
+      displayLabel: "Creating a task",
+      department: "planning_bay",
+    });
+    ctx.events.insert(event);
+    ctx.events.update(transitionEvent(transitionEvent(event, "working"), "succeeded"));
+    db.close();
+
+    const body = (await (await get("/state")).json()) as { state: DashboardState };
+    expect(body.state.timeline).toHaveLength(1);
+    expect(body.state.timeline[0]!.toolName).toBe("create_task");
+  });
+
+  it("never cancels open events that belong to the extension", async () => {
+    const { db } = openDatabase(dbPath);
+    const ctx = createServiceContext(db);
+    const open = createActivityEvent({
+      toolName: "preview_bulk_task_update",
+      displayLabel: "Awaiting approval: bulk task update",
+      department: "security_gate",
+    });
+    ctx.events.insert(open);
+    ctx.events.update(transitionEvent(transitionEvent(open, "working"), "waiting_for_input"));
+    db.close();
+
+    const body = (await (await get("/state")).json()) as { state: DashboardState };
+    expect(body.state.currentActivity.idle).toBe(false);
+    expect(body.state.currentActivity.openEvents[0]!.status).toBe("waiting_for_input");
+
+    // Still open on a second read: observing must not mutate.
+    const again = (await (await get("/state")).json()) as { state: DashboardState };
+    expect(again.state.currentActivity.openEvents[0]!.status).toBe("waiting_for_input");
+  });
+
+  it("serves the built dashboard HTML at /", async () => {
+    const fixture = path.join(tmpDir, "dashboard.html");
+    fs.writeFileSync(fixture, "<!doctype html><html><body>monitor</body></html>", "utf-8");
+    process.env.CMC_UI_HTML = fixture;
+    const response = await get("/");
+    expect(response.status).toBe(200);
+    expect(await response.text()).toContain("monitor");
+  });
+
+  it("answers /health and 404s unknown paths", async () => {
+    expect((await get("/health")).status).toBe(200);
+    expect((await get("/nope")).status).toBe(404);
+  });
+});

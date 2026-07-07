@@ -11,7 +11,14 @@ import { FacilityPanel } from "./facility/FacilityPanel.js";
 // Errors are shown verbatim with their stable code and recovery hint — never
 // hidden behind visual effects.
 
-export function DashboardApp({ bridge }: { bridge: HostBridge }) {
+export function DashboardApp({
+  bridge,
+  readOnly = false,
+}: {
+  bridge: HostBridge;
+  /** Monitor mode: state renders live, but all mutating controls are off. */
+  readOnly?: boolean;
+}) {
   const [state, setState] = useState<DashboardState | null>(null);
   const [error, setError] = useState<ToolError | null>(null);
   const [busy, setBusy] = useState(false);
@@ -105,10 +112,18 @@ export function DashboardApp({ bridge }: { bridge: HostBridge }) {
       <ProjectHeader
         state={state}
         busy={busy}
+        readOnly={readOnly}
         onSelectProject={(projectId) => void act("set_active_project", { projectId })}
         onChangeStage={(stage: ProjectStage) => void act("update_project_stage", { stage })}
         onRefresh={() => void refresh()}
       />
+
+      {readOnly && (
+        <div className="panel monitor-banner" role="note">
+          <strong>Monitor mode</strong> — read-only view. Make changes in your Claude conversation;
+          they appear here automatically.
+        </div>
+      )}
 
       {error && (
         <div className="error-banner" role="alert">
@@ -132,6 +147,7 @@ export function DashboardApp({ bridge }: { bridge: HostBridge }) {
           <WorkPanel
             state={state}
             busy={busy}
+            readOnly={readOnly}
             connection={connection}
             onCreateTask={(title) => void act("create_task", { title })}
             onTaskStatus={(task: Task, status: TaskStatus, blockedReason?: string) =>

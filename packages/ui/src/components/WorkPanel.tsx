@@ -13,6 +13,7 @@ type Tab = "tasks" | "decisions" | "checkpoint" | "diagnostics";
 interface Props {
   state: DashboardState;
   busy: boolean;
+  readOnly?: boolean;
   connection: { connected: boolean; detail?: string };
   onCreateTask: (title: string) => void;
   onTaskStatus: (task: Task, status: TaskStatus, blockedReason?: string) => void;
@@ -26,7 +27,7 @@ const TABS: Array<{ id: Tab; label: string }> = [
   { id: "diagnostics", label: "Diagnostics" },
 ];
 
-function TasksTab({ state, busy, onCreateTask, onTaskStatus }: Props) {
+function TasksTab({ state, busy, readOnly, onCreateTask, onTaskStatus }: Props) {
   const [title, setTitle] = useState("");
   const inputId = useId();
   if (!state.activeProject) {
@@ -34,32 +35,34 @@ function TasksTab({ state, busy, onCreateTask, onTaskStatus }: Props) {
   }
   return (
     <>
-      <form
-        className="inline"
-        onSubmit={(e) => {
-          e.preventDefault();
-          const trimmed = title.trim();
-          if (trimmed !== "") {
-            onCreateTask(trimmed);
-            setTitle("");
-          }
-        }}
-      >
-        <label htmlFor={inputId} className="muted">
-          New task
-        </label>
-        <input
-          id={inputId}
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          maxLength={120}
-          placeholder="Task title"
-          disabled={busy}
-        />
-        <button type="submit" disabled={busy || title.trim() === ""}>
-          Add task
-        </button>
-      </form>
+      {!readOnly && (
+        <form
+          className="inline"
+          onSubmit={(e) => {
+            e.preventDefault();
+            const trimmed = title.trim();
+            if (trimmed !== "") {
+              onCreateTask(trimmed);
+              setTitle("");
+            }
+          }}
+        >
+          <label htmlFor={inputId} className="muted">
+            New task
+          </label>
+          <input
+            id={inputId}
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            maxLength={120}
+            placeholder="Task title"
+            disabled={busy}
+          />
+          <button type="submit" disabled={busy || title.trim() === ""}>
+            Add task
+          </button>
+        </form>
+      )}
 
       {state.tasks.length === 0 ? (
         <p className="muted">No tasks yet.</p>
@@ -83,28 +86,32 @@ function TasksTab({ state, busy, onCreateTask, onTaskStatus }: Props) {
                 <td>{STAGE_LABELS[task.stage]}</td>
                 <td>{task.priority}</td>
                 <td>
-                  <select
-                    aria-label={`Status of task ${task.title}`}
-                    value={task.status}
-                    disabled={busy}
-                    onChange={(e) => {
-                      const status = e.target.value as TaskStatus;
-                      if (status === "blocked") {
-                        const reason = window.prompt("Why is this task blocked?");
-                        if (reason && reason.trim() !== "") {
-                          onTaskStatus(task, status, reason.trim());
+                  {readOnly ? (
+                    <span>{task.status.replace(/_/g, " ")}</span>
+                  ) : (
+                    <select
+                      aria-label={`Status of task ${task.title}`}
+                      value={task.status}
+                      disabled={busy}
+                      onChange={(e) => {
+                        const status = e.target.value as TaskStatus;
+                        if (status === "blocked") {
+                          const reason = window.prompt("Why is this task blocked?");
+                          if (reason && reason.trim() !== "") {
+                            onTaskStatus(task, status, reason.trim());
+                          }
+                        } else {
+                          onTaskStatus(task, status);
                         }
-                      } else {
-                        onTaskStatus(task, status);
-                      }
-                    }}
-                  >
-                    {TASK_STATUSES.map((status) => (
-                      <option key={status} value={status}>
-                        {status.replace(/_/g, " ")}
-                      </option>
-                    ))}
-                  </select>
+                      }}
+                    >
+                      {TASK_STATUSES.map((status) => (
+                        <option key={status} value={status}>
+                          {status.replace(/_/g, " ")}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </td>
               </tr>
             ))}
@@ -140,7 +147,7 @@ function DecisionsTab({ state }: Props) {
   );
 }
 
-function CheckpointTab({ state, busy, onSaveCheckpoint }: Props) {
+function CheckpointTab({ state, busy, readOnly, onSaveCheckpoint }: Props) {
   const [summary, setSummary] = useState("");
   const [nextAction, setNextAction] = useState("");
   const summaryId = useId();
@@ -169,7 +176,7 @@ function CheckpointTab({ state, busy, onSaveCheckpoint }: Props) {
         <p className="muted">No checkpoint saved for this project yet.</p>
       )}
 
-      {state.activeProject && (
+      {state.activeProject && !readOnly && (
         <form
           className="inline"
           onSubmit={(e) => {

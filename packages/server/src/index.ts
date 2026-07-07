@@ -49,4 +49,9 @@ export {
 } from "./services/activity-event-service.js";
 export { createUiStateService, type UiStateService } from "./services/ui-state-service.js";
 export { DASHBOARD_RESOURCE_URI, resolveDashboardHtmlPath } from "./mcp/ui-resource.js";
+export {
+  startMonitorServer,
+  type MonitorServer,
+  type MonitorServerOptions,
+} from "./monitor/monitor-server.js";
 export { createMissionControlServer, SERVER_VERSION } from "./mcp/server.js";

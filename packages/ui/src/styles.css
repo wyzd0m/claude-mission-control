@@ -255,6 +255,16 @@ form.inline {
   color: var(--warn);
 }
 
+.monitor-banner {
+  padding: 8px 12px;
+  border-color: var(--accent);
+  color: var(--muted);
+}
+
+.monitor-banner strong {
+  color: var(--accent);
+}
+
 .facility-viewport {
   height: 340px;
   border-radius: 6px;

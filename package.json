@@ -24,6 +24,7 @@
     "smoke:bundle": "node scripts/smoke-bundle.mjs",
     "pack": "mcpb pack dist/bundle dist/claude-mission-control.mcpb",
     "release": "npm run build:bundle && npm run smoke:bundle && npm run pack",
+    "monitor": "tsx packages/server/src/monitor/main.ts",
     "mcp:dev": "tsx packages/server/src/mcp/main.ts",
     "mcp:inspect": "npx @modelcontextprotocol/inspector npx tsx packages/server/src/mcp/main.ts"
   },

@@ -34,6 +34,22 @@ Try the layout in a plain browser: `npm run build:dashboard`, then
 sample data). A ready-to-import example project lives in
 [`examples/demo-project.json`](examples/demo-project.json).
 
+## Monitor window
+
+Want Mission Control visible the whole time Claude works, outside the chat? Run:
+
+```bash
+npm run monitor
+```
+
+This opens a **read-only monitor window** in your browser (127.0.0.1 only) that reads the shared
+local database directly and live-updates as Claude uses Mission Control tools — independent of
+Claude Desktop's conversation lifecycle, so it stays up across restarts and new chats. Changes are
+made in the conversation; the monitor is a pure observer. Keep it on a second screen and add a
+line like _"keep Mission Control updated as you work"_ to your projects' instructions so the
+facility reflects progress continuously. (`CMC_MONITOR_PORT` changes the port;
+`--no-open` skips launching the browser.)
+
 ## Install
 
 See [`docs/INSTALL.md`](docs/INSTALL.md). Short version: build with `npm run release`, then in
@@ -64,7 +80,7 @@ flowchart TD
   and animates a pure, unit-tested scene state; ambient motion is never presented as work.
 
 Key architectural decisions are recorded in [`docs/DECISION_LOG.md`](docs/DECISION_LOG.md)
-(D-001 through D-024). The eight end-to-end workflows are documented in
+(D-001 through D-025). The eight end-to-end workflows are documented in
 [`docs/WORKFLOWS.md`](docs/WORKFLOWS.md).
 
 ## Honesty model
@@ -96,7 +112,7 @@ The facility is an interface for verified events, not an AI mind reader
 
 ```bash
 npm install
-npm run verify     # typecheck + lint + format + 136 tests
+npm run verify     # typecheck + lint + format + 146 tests
 npm run release    # build bundle + stdio smoke test + pack .mcpb
 npm run mcp:inspect  # interactive tool testing with MCP Inspector
 ```
