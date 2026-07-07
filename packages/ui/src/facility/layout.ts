@@ -35,6 +35,8 @@ export const STATE_COLORS = {
   working: "#57c4ff",
   waiting: "#ffc66b",
   failed: "#ff7a76",
+  succeeded: "#5fd39a",
+  cancelled: "#8494a7",
   stage: "#7fd0ff",
   neutral: "#2c3d52",
 } as const;

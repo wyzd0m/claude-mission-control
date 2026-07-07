@@ -27,6 +27,15 @@ export function DashboardApp({ bridge }: { bridge: HostBridge }) {
     });
     bridge.onConnection((status) => {
       if (mounted.current) setConnection(status);
+      // Fetch state on connect in case the host did not push an initial
+      // tool result (e.g. the dashboard was reloaded in place).
+      if (status.connected) {
+        void bridge.callTool("get_mission_control_state").then((response) => {
+          if (mounted.current && response.ok && response.state !== undefined) {
+            setState(response.state as DashboardState);
+          }
+        });
+      }
     });
     return () => {
       mounted.current = false;
@@ -42,6 +51,18 @@ export function DashboardApp({ bridge }: { bridge: HostBridge }) {
       setError(response.error);
     }
   }, [bridge]);
+
+  // Live updates (Phase 7, decision D-024): poll the read model on a light
+  // interval so events from the conversation appear without user action.
+  // State reads create no activity events (D-022) and pause while hidden.
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      if (document.visibilityState === "visible") {
+        void refresh();
+      }
+    }, 2500);
+    return () => window.clearInterval(id);
+  }, [refresh]);
 
   /** Run a mutating tool, then refresh the read model. */
   const act = useCallback(

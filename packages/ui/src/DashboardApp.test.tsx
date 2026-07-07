@@ -2,8 +2,8 @@
 // fake host bridge. Verifies the honest idle state, exact activity display,
 // error banner with recovery hints, forms calling the right tools, and the
 // approval hint for waiting events.
-import { afterEach, describe, expect, it } from "vitest";
-import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
 
 afterEach(cleanup);
 import userEvent from "@testing-library/user-event";
@@ -254,6 +254,27 @@ describe("DashboardApp", () => {
       summary: "End of session",
       recommendedNextAction: "Start phase 6",
     });
+  });
+
+  it("polls the read model for live updates while visible (D-024)", async () => {
+    vi.useFakeTimers();
+    try {
+      const bridge = new FakeBridge(dashboardState());
+      render(<DashboardApp bridge={bridge} />);
+      const countStateCalls = () =>
+        bridge.calls.filter((c) => c.name === "get_mission_control_state").length;
+      const before = countStateCalls();
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(2600);
+      });
+      expect(countStateCalls()).toBe(before + 1);
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(2600);
+      });
+      expect(countStateCalls()).toBe(before + 2);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("shows diagnostics including server version and truthfulness note", async () => {

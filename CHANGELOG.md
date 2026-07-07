@@ -8,6 +8,14 @@ Version 1.0.0 is the first one-click release described in `docs/IMPLEMENTATION_R
 
 ### Added
 
+- Phase 7 event-driven animation: a pure, unit-tested animator replays newly observed persisted
+  events (robot travels the paths, works in the room, flashes the exact outcome, returns), keeps
+  still-open operations honestly in a working loop until their real terminal status arrives, and
+  holds the robot at the Security Gate while approvals wait. The dashboard now polls the read
+  model every 2.5 s while visible (D-024) so conversation activity appears live; reloads restore
+  quiet state without replaying history. Demo mode emits rotating sample events for inspection.
+  9 new tests (129 total).
+
 - Phase 6 static facility: procedural low-poly isometric scene (Three.js / React Three Fiber, no
   imported models) with Command Core, seven department rooms with signature props, floor paths,
   and one robot. Rooms light from a deterministic scene state derived purely from the dashboard

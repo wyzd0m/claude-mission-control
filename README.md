@@ -68,6 +68,12 @@ A user should be able to:
 
 ## Current phase
 
+**Phase 7 — Event-driven animation** is complete: the robot now replays real persisted events —
+dispatching from the Command Core, travelling the paths, working in the department, and flashing
+the exact outcome — while open approvals hold it at the Security Gate. The dashboard polls the
+read model every 2.5 s while visible, reloads restore quiet state without replaying history, and
+reduced motion falls back to static placement.
+
 **Phase 6 — Static facility** is complete: a procedural low-poly isometric facility (Command Core,
 seven department rooms, paths, one robot — all code-generated primitives) renders inside the
 dashboard from a deterministic scene state. Rooms react only to persisted events and the saved
@@ -106,4 +112,4 @@ tools, persistence, and single-file UI all verified. One host limitation is docu
 extension tools to the model (Claude Code sessions in the same app do). Re-tested after each
 Claude Desktop update.
 
-Next: **Phase 7 — Event-driven animation.**
+Next: **Phase 8 — End-to-end workflows.**

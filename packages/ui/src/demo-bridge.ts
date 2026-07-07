@@ -1,4 +1,4 @@
-import type { DashboardState } from "@mission-control/domain";
+import type { ActivityEvent, DashboardState } from "@mission-control/domain";
 import type { HostBridge, ToolResponse } from "./bridge.js";
 
 // Development-only bridge, activated by opening the built file with `?demo`.
@@ -160,11 +160,86 @@ function demoState(): DashboardState {
   };
 }
 
+// Rotating sample operations so the Phase 7 animation can be inspected in a
+// plain browser: every few polls a new (clearly sample) event appears and the
+// robot replays it.
+const DEMO_CYCLE: Array<{
+  department: ActivityEvent["department"];
+  status: ActivityEvent["status"];
+  toolName: string;
+  displayLabel: string;
+}> = [
+  {
+    department: "planning_bay",
+    status: "succeeded",
+    toolName: "create_task",
+    displayLabel: "Creating a task",
+  },
+  {
+    department: "memory_vault",
+    status: "succeeded",
+    toolName: "record_decision",
+    displayLabel: "Recording a project decision",
+  },
+  {
+    department: "testing_lab",
+    status: "failed",
+    toolName: "record_validation_result",
+    displayLabel: "Recording a validation result",
+  },
+  {
+    department: "delivery_dock",
+    status: "succeeded",
+    toolName: "export_project",
+    displayLabel: "Packaging a project export",
+  },
+  {
+    department: "build_workshop",
+    status: "cancelled",
+    toolName: "register_artifact",
+    displayLabel: "Registering an artifact",
+  },
+];
+
 export function createDemoBridge(): HostBridge {
   const state = demoState();
+  let polls = 0;
+  let cycleIndex = 0;
+
   return {
-    callTool(): Promise<ToolResponse> {
-      return Promise.resolve({ ok: true, state });
+    callTool(name: string): Promise<ToolResponse> {
+      if (name === "get_mission_control_state") {
+        polls += 1;
+        // A new sample event roughly every third poll (~7.5 s).
+        if (polls % 3 === 0) {
+          const spec = DEMO_CYCLE[cycleIndex % DEMO_CYCLE.length]!;
+          cycleIndex += 1;
+          const at = new Date().toISOString();
+          const demoEvent: ActivityEvent = {
+            id: `demo-live-${cycleIndex}`,
+            projectId: "demo-project",
+            correlationId: `demo-live-corr-${cycleIndex}`,
+            toolName: spec.toolName,
+            displayLabel: `${spec.displayLabel} (sample)`,
+            department: spec.department,
+            status: spec.status,
+            startedAt: at,
+            updatedAt: at,
+            completedAt: at,
+            progressCurrent: null,
+            progressTotal: null,
+            progressMessage: null,
+            relatedTaskIds: [],
+            requiresInput: false,
+            resultSummary: spec.status === "succeeded" ? "Sample operation completed." : null,
+            errorCode: spec.status === "failed" ? "SAMPLE_FAILURE" : null,
+            errorSummary: spec.status === "failed" ? "Sample failure for the demo." : null,
+          };
+          state.timeline = [demoEvent, ...state.timeline].slice(0, 12);
+          state.generatedAt = at;
+        }
+      }
+      return Promise.resolve({ ok: true, state: { ...state } });
     },
     onInitialState(listener) {
       listener(state);

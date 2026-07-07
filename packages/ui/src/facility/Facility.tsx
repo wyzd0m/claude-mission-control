@@ -1,9 +1,25 @@
-import { useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import type * as THREE from "three";
-import type { Department } from "@mission-control/domain";
+import type { DashboardState, Department } from "@mission-control/domain";
 import { ROOM_POSITIONS, ROOM_ACCENTS, STATE_COLORS } from "./layout.js";
 import type { RoomSceneState, SceneState } from "./scene-state.js";
+import {
+  createAnimator,
+  ingest,
+  tick,
+  robotPlacement,
+  robotWorldPosition,
+  type AnimationPhase,
+  type JobOutcome,
+} from "./animation.js";
+
+/** What the animator is presenting right now, for room lighting. */
+export interface LiveActivity {
+  department: Department;
+  phase: AnimationPhase | "gate";
+  outcome: JobOutcome | null;
+}
 
 // Procedural low-poly facility (Phase 6, VISUAL_DESIGN §5-§7). Everything is
 // generated from primitives in code — no imported models. The scene renders
@@ -30,12 +46,31 @@ function roomStateColor(room: RoomSceneState): string {
 }
 
 /** Shared room shell: floor slab, two back walls, and a status light strip. */
-function RoomShell({ room, children }: { room: RoomSceneState; children?: React.ReactNode }) {
+function RoomShell({
+  room,
+  live,
+  children,
+}: {
+  room: RoomSceneState;
+  live?: LiveActivity | undefined;
+  children?: React.ReactNode;
+}) {
   const [x, z] = ROOM_POSITIONS[room.department];
   const accent = ROOM_ACCENTS[room.department];
-  const stateColor = roomStateColor(room);
-  const emissiveIntensity =
+  // A live replay overrides the strip: working pulse, then the exact outcome
+  // flash (VISUAL_DESIGN §8). Otherwise the persisted room state shows.
+  let stateColor = roomStateColor(room);
+  let emissiveIntensity =
     room.failed || room.waiting || room.workingCount > 0 ? 0.9 : room.stageHighlight ? 0.5 : 0.15;
+  if (live) {
+    if (live.phase === "working") {
+      stateColor = STATE_COLORS.working;
+      emissiveIntensity = 1.2;
+    } else if (live.phase === "outcome" && live.outcome !== null && live.outcome !== "open") {
+      stateColor = STATE_COLORS[live.outcome];
+      emissiveIntensity = 1.4;
+    }
+  }
   return (
     <group position={[x, 0, z]}>
       <mesh position={[0, -0.15, 0]}>
@@ -264,12 +299,10 @@ function CommandCore({ idle, reducedMotion }: { idle: boolean; reducedMotion: bo
   );
 }
 
-/** One reusable robot (VISUAL_DESIGN §7): static placement in Phase 6. */
-function Robot({ at }: { at: Department }) {
-  const [x, z] = ROOM_POSITIONS[at];
-  const offset = at === "command_core" ? 2.4 : 1.9;
+/** One reusable robot body (VISUAL_DESIGN §7), shared by both variants. */
+function RobotBody({ statusColor = "#5fd39a" }: { statusColor?: string }) {
   return (
-    <group position={[x, 0, z + offset]}>
+    <>
       <mesh position={[0, 0.45, 0]}>
         <boxGeometry args={[0.6, 0.7, 0.5]} />
         <meshStandardMaterial color="#c8d6e5" {...FLAT} />
@@ -295,12 +328,89 @@ function Robot({ at }: { at: Department }) {
       <mesh position={[0, 1.35, 0]}>
         <sphereGeometry args={[0.09, 8, 6]} />
         <meshStandardMaterial
-          color="#5fd39a"
-          emissive="#2a6a4d"
+          color={statusColor}
+          emissive={statusColor}
           emissiveIntensity={0.9}
           {...FLAT}
         />
       </mesh>
+    </>
+  );
+}
+
+/** Static robot used in reduced-motion mode (Phase 6 behavior). */
+function Robot({ at }: { at: Department }) {
+  const [x, z] = ROOM_POSITIONS[at];
+  const offset = at === "command_core" ? 2.4 : 1.9;
+  return (
+    <group position={[x, 0, z + offset]}>
+      <RobotBody />
+    </group>
+  );
+}
+
+const STATUS_LIGHT: Record<AnimationPhase | "idle" | "gate", string> = {
+  idle: "#5fd39a",
+  travel: "#57c4ff",
+  working: "#57c4ff",
+  outcome: "#5fd39a",
+  return: "#5fd39a",
+  gate: "#ffc66b",
+};
+
+/**
+ * Event-driven robot (Phase 7). The animator state lives in a ref and is
+ * advanced imperatively each frame; React state updates happen only on
+ * discrete phase changes, which drive the room lighting.
+ */
+function AnimatedRobot({
+  dashboard,
+  onLiveActivity,
+}: {
+  dashboard: DashboardState;
+  onLiveActivity: (live: LiveActivity | null) => void;
+}) {
+  const animRef = useRef(createAnimator());
+  const groupRef = useRef<THREE.Group>(null);
+  const lastKeyRef = useRef("");
+  const [statusColor, setStatusColor] = useState(STATUS_LIGHT.idle);
+
+  useEffect(() => {
+    animRef.current = ingest(animRef.current, dashboard);
+  }, [dashboard]);
+
+  useFrame((frameState, dt) => {
+    animRef.current = tick(animRef.current, Math.min(dt, 0.25));
+    const placement = robotPlacement(animRef.current);
+    const [x, z] = robotWorldPosition(placement);
+    const group = groupRef.current;
+    if (group) {
+      const bob =
+        placement.phase === "travel" || placement.phase === "return"
+          ? Math.abs(Math.sin(frameState.clock.elapsedTime * 9)) * 0.08
+          : 0;
+      group.position.set(x, bob, z + 2.1);
+    }
+    const key = `${placement.phase}:${placement.activeDepartment ?? ""}:${placement.outcome ?? ""}`;
+    if (key !== lastKeyRef.current) {
+      lastKeyRef.current = key;
+      setStatusColor(STATUS_LIGHT[placement.phase]);
+      // activeDepartment is only set during working, outcome, and gate phases.
+      onLiveActivity(
+        placement.activeDepartment !== null && placement.phase !== "idle"
+          ? {
+              department: placement.activeDepartment,
+              phase: placement.phase,
+              outcome: placement.outcome,
+            }
+          : null,
+      );
+    }
+  });
+
+  return (
+    <group ref={groupRef} position={[0, 0, 2.4]}>
+      <RobotBody statusColor={statusColor} />
     </group>
   );
 }
@@ -330,7 +440,16 @@ function Paths() {
   );
 }
 
-export function Facility({ scene, reducedMotion }: { scene: SceneState; reducedMotion: boolean }) {
+export function Facility({
+  scene,
+  dashboard,
+  reducedMotion,
+}: {
+  scene: SceneState;
+  dashboard: DashboardState;
+  reducedMotion: boolean;
+}) {
+  const [live, setLive] = useState<LiveActivity | null>(null);
   return (
     <Canvas
       orthographic
@@ -352,11 +471,19 @@ export function Facility({ scene, reducedMotion }: { scene: SceneState; reducedM
       {scene.rooms
         .filter((room) => room.department !== "command_core")
         .map((room) => (
-          <RoomShell key={room.department} room={room}>
+          <RoomShell
+            key={room.department}
+            room={room}
+            live={live !== null && live.department === room.department ? live : undefined}
+          >
             <RoomProps department={room.department} />
           </RoomShell>
         ))}
-      <Robot at={scene.robotAt} />
+      {reducedMotion ? (
+        <Robot at={scene.robotAt} />
+      ) : (
+        <AnimatedRobot dashboard={dashboard} onLiveActivity={setLive} />
+      )}
     </Canvas>
   );
 }

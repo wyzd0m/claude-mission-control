@@ -137,6 +137,26 @@ Resolves the library question left open by D-014. The storage adapter uses `node
 - Verified by the Phase 2 test suite: migrations, transactions, foreign keys, `VACUUM INTO`
   backups, and WAL journaling all work on Node 24.
 
+## D-024 — Phase 7 live updates and replay animation
+
+**Status:** Accepted
+
+- Live updates use polling: the dashboard calls `get_mission_control_state` every 2.5 seconds
+  while visible and pauses when hidden. Host push notifications are optional per the MCP spec and
+  must not be a correctness dependency (`docs/MCP_OBSERVABILITY_MODEL.md`); polling reads create
+  no activity events (D-022), so the timeline is not flooded.
+- Animation is a pure presentation state machine (`packages/ui/src/facility/animation.ts`):
+  each newly observed persisted event is replayed once — travel → working → outcome → return —
+  and an event that is still open loops in `working` until a later poll shows its real terminal
+  status. Outcomes are never invented.
+- Open `waiting_for_input` events hold the robot at the Security Gate; they are state-driven,
+  not replays.
+- The first ingest after (re)load marks existing history as seen without animating, so a reload
+  restores the correct quiet state instead of replaying the past.
+- The replay queue is capped (4); under bursts the exact record remains in the timeline panel,
+  which is authoritative. Reduced motion disables the animator entirely and falls back to the
+  Phase 6 static placement.
+
 ## D-023 — Phase 6 facility scene semantics
 
 **Status:** Accepted

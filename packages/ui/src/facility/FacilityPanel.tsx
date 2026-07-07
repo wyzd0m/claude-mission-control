@@ -50,7 +50,7 @@ export function FacilityPanel({ state }: { state: DashboardState }) {
       </div>
       {show3d ? (
         <div className="facility-viewport" aria-label="3D facility scene">
-          <Facility scene={scene} reducedMotion={prefs.reducedMotion} />
+          <Facility scene={scene} dashboard={state} reducedMotion={prefs.reducedMotion} />
         </div>
       ) : (
         <StatusMap2D scene={scene} />
