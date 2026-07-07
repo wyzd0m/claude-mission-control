@@ -68,6 +68,11 @@ A user should be able to:
 
 ## Current phase
 
+**Phase 8 — End-to-end workflows** is complete: all eight required scenarios (plan a project,
+work tasks, record decisions and validation results, checkpoint, continue in a new conversation,
+export/import, bulk preview/approve) run as repeatable tests through the real MCP client, each
+with a documented visual mapping and failure behavior — see [`docs/WORKFLOWS.md`](docs/WORKFLOWS.md).
+
 **Phase 7 — Event-driven animation** is complete: the robot now replays real persisted events —
 dispatching from the Command Core, travelling the paths, working in the department, and flashing
 the exact outcome — while open approvals hold it at the Security Gate. The dashboard polls the
@@ -112,4 +117,4 @@ tools, persistence, and single-file UI all verified. One host limitation is docu
 extension tools to the model (Claude Code sessions in the same app do). Re-tested after each
 Claude Desktop update.
 
-Next: **Phase 8 — End-to-end workflows.**
+Next: **Phase 9 — Packaging (`.mcpb` bundle).**

@@ -8,6 +8,13 @@ Version 1.0.0 is the first one-click release described in `docs/IMPLEMENTATION_R
 
 ### Added
 
+- Phase 8 end-to-end workflows: all eight roadmap scenarios covered by a repeatable e2e suite
+  driving the real MCP client — project planning, task lifecycle, decisions, validation results,
+  checkpoints, continuing in a new conversation (fresh server over the same database),
+  export/import round trip, and the bulk preview/approve flow. Each scenario asserts its visual
+  mapping (accurate persisted events per department) and its failure behavior (stable error codes,
+  failed events). Scenario reference in `docs/WORKFLOWS.md`. 7 new tests (136 total).
+
 - Phase 7 event-driven animation: a pure, unit-tested animator replays newly observed persisted
   events (robot travels the paths, works in the room, flashes the exact outcome, returns), keeps
   still-open operations honestly in a working loop until their real terminal status arrives, and
