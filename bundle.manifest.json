@@ -1,0 +1,24 @@
+{
+  "manifest_version": "0.3",
+  "name": "claude-mission-control",
+  "display_name": "Claude Mission Control",
+  "version": "0.1.0",
+  "description": "Local-first project workspace for Claude Desktop: structured project, task, decision, and checkpoint tools with a truthful low-poly isometric mission-control dashboard. No API key, all data stays local.",
+  "author": {
+    "name": "wyzd0m"
+  },
+  "server": {
+    "type": "node",
+    "entry_point": "server/index.js",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/server/index.js"]
+    }
+  },
+  "compatibility": {
+    "platforms": ["win32", "darwin"],
+    "runtimes": {
+      "node": ">=22.5.0"
+    }
+  }
+}

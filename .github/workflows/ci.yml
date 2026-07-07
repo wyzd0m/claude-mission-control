@@ -24,7 +24,8 @@ jobs:
       - run: npm run lint
       - run: npm run format:check
       - run: npm test
-      - run: npm run build:dashboard
+      - run: npm run build:bundle
+      - run: npm run smoke:bundle
 
   poc:
     name: Phase 0 PoC regression (${{ matrix.os }})

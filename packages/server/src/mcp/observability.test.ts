@@ -142,7 +142,7 @@ describe("event lifecycle per tool call", () => {
   it("declares a valid department on every registered tool", async () => {
     const harness = await setup();
     const { tools } = await harness.client.listTools();
-    expect(tools.length).toBe(26);
+    expect(tools.length).toBe(27);
     for (const tool of tools) {
       const department = (tool._meta as { missionControl?: { department?: string } } | undefined)
         ?.missionControl?.department;

@@ -17,6 +17,8 @@ import {
   SETTING_ACTIVE_PROJECT_ID,
   type Department,
 } from "@mission-control/domain";
+import fs from "node:fs";
+import path from "node:path";
 import {
   registerAppTool,
   registerAppResource,
@@ -27,7 +29,18 @@ import {
   type ActivityEventService,
 } from "../services/activity-event-service.js";
 import { createUiStateService } from "../services/ui-state-service.js";
-import { DASHBOARD_RESOURCE_URI, readDashboardHtml } from "./ui-resource.js";
+import { MIGRATIONS } from "../storage/migrations.js";
+import {
+  backupsDirPath,
+  databaseFilePath,
+  exportsDirPath,
+  resolveDataRoot,
+} from "../storage/paths.js";
+import {
+  DASHBOARD_RESOURCE_URI,
+  readDashboardHtml,
+  resolveDashboardHtmlPath,
+} from "./ui-resource.js";
 import { createProjectService } from "../services/project-service.js";
 import { createTaskService } from "../services/task-service.js";
 import { createRecordService } from "../services/record-service.js";
@@ -842,6 +855,82 @@ export function createMissionControlServer(
       try {
         const state = uiState.buildDashboardState();
         return okResult(`Mission Control state generated at ${state.generatedAt}.`, { state });
+      } catch (error) {
+        return errorResult(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    "get_diagnostics",
+    {
+      title: "Get diagnostics",
+      description:
+        "Health check for Mission Control: version, database path and schema, writable storage, dashboard availability, and recent safe errors. Side effect: writes and removes one small probe file in the data directory. Never includes secrets.",
+      inputSchema: {},
+      _meta: { missionControl: { department: "command_core" } },
+    },
+    () => {
+      try {
+        const dbPath = databaseFilePath();
+        let appliedMigrations = 0;
+        try {
+          const row = ctx.db.prepare("SELECT COUNT(*) AS applied FROM migrations").get() as
+            { applied: number } | undefined;
+          appliedMigrations = row?.applied ?? 0;
+        } catch {
+          appliedMigrations = 0;
+        }
+
+        let storageWritable = false;
+        try {
+          const probe = path.join(resolveDataRoot(), `.probe-${process.pid}`);
+          fs.writeFileSync(probe, "ok");
+          fs.rmSync(probe);
+          storageWritable = true;
+        } catch {
+          storageWritable = false;
+        }
+
+        let dashboard: { available: boolean; detail: string };
+        try {
+          dashboard = { available: true, detail: resolveDashboardHtmlPath() };
+        } catch (error) {
+          dashboard = {
+            available: false,
+            detail: isDomainError(error) ? error.message : "unknown error",
+          };
+        }
+
+        const recentErrors = activity
+          .getTimeline(100)
+          .filter((e) => e.status === "failed")
+          .slice(0, 5)
+          .map((e) => ({
+            toolName: e.toolName,
+            errorCode: e.errorCode,
+            errorSummary: e.errorSummary,
+            at: e.updatedAt,
+          }));
+
+        const diagnostics = {
+          serverVersion: SERVER_VERSION,
+          databasePath: dbPath,
+          appliedMigrations,
+          expectedMigrations: MIGRATIONS.length,
+          storageWritable,
+          dashboard,
+          dataDirectories: {
+            root: resolveDataRoot(),
+            exports: exportsDirPath(),
+            backups: backupsDirPath(),
+          },
+          recentErrors,
+        };
+        return okResult(
+          `Diagnostics: schema ${appliedMigrations}/${MIGRATIONS.length}, storage ${storageWritable ? "writable" : "NOT WRITABLE"}, dashboard ${dashboard.available ? "available" : "unavailable"}.`,
+          { diagnostics },
+        );
       } catch (error) {
         return errorResult(error);
       }

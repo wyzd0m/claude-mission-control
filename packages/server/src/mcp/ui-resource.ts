@@ -29,13 +29,23 @@ export function resolveDashboardHtmlPath(): string {
     return resolved;
   }
 
-  // packages/server/{src,dist}/mcp -> packages/ui/dist/dashboard.html
-  const here = path.dirname(fileURLToPath(import.meta.url));
-  const devBuild = path.resolve(here, "..", "..", "..", "ui", "dist", "dashboard.html");
-  if (fs.existsSync(devBuild)) {
-    return devBuild;
+  // In the packaged bundle the server is compiled to CommonJS and __dirname
+  // exists; in the ESM dev build we derive it from import.meta.
+  const here =
+    typeof __dirname !== "undefined" ? __dirname : path.dirname(fileURLToPath(import.meta.url));
+
+  const candidates = [
+    // Extension bundle layout: <bundle>/server/index.js -> <bundle>/ui/dashboard.html
+    path.resolve(here, "..", "ui", "dashboard.html"),
+    // Repository dev layout: packages/server/{src,dist}/mcp -> packages/ui/dist/dashboard.html
+    path.resolve(here, "..", "..", "..", "ui", "dist", "dashboard.html"),
+  ];
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) {
+      return candidate;
+    }
   }
-  throw unavailable(`no built dashboard at ${devBuild}`);
+  throw unavailable(`no built dashboard at ${candidates.join(" or ")}`);
 }
 
 export function readDashboardHtml(): string {

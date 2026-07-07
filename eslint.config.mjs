@@ -19,7 +19,7 @@ export default tseslint.config(
   },
   {
     // Scripts and config files are not part of a TS project.
-    files: ["*.mjs", "*.ts", "packages/*/vite.config.ts"],
+    files: ["*.mjs", "*.ts", "scripts/*.mjs", "packages/*/vite.config.ts"],
     ...tseslint.configs.disableTypeChecked,
   },
   {
@@ -27,6 +27,21 @@ export default tseslint.config(
       "no-console": ["warn", { allow: ["error", "warn"] }],
       "@typescript-eslint/consistent-type-imports": "error",
       "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_" }],
+    },
+  },
+  {
+    // Node build/dev scripts run outside the TS projects and may log freely.
+    files: ["scripts/*.mjs", "*.mjs"],
+    languageOptions: {
+      globals: {
+        console: "readonly",
+        process: "readonly",
+        setTimeout: "readonly",
+        URL: "readonly",
+      },
+    },
+    rules: {
+      "no-console": "off",
     },
   },
   {

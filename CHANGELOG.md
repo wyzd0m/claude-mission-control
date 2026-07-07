@@ -8,6 +8,13 @@ Version 1.0.0 is the first one-click release described in `docs/IMPLEMENTATION_R
 
 ### Added
 
+- Phase 9 packaging: production `.mcpb` bundle (`npm run release`) — esbuild-bundled CommonJS
+  server (no node_modules, node:sqlite built in), single-file dashboard, validated manifest;
+  ~650 kB packed. New `get_diagnostics` tool (version, schema, writable storage, dashboard
+  availability, recent safe errors), automatic pre-migration database backups on upgrades, a
+  stdio smoke test that drives the packed bundle exactly like Claude Desktop (now part of CI),
+  and end-user install/update/uninstall documentation in `docs/INSTALL.md`.
+
 - Phase 8 end-to-end workflows: all eight roadmap scenarios covered by a repeatable e2e suite
   driving the real MCP client — project planning, task lifecycle, decisions, validation results,
   checkpoints, continuing in a new conversation (fresh server over the same database),

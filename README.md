@@ -68,6 +68,11 @@ A user should be able to:
 
 ## Current phase
 
+**Phase 9 — Packaging** is built and awaiting the manual clean-install test: `npm run release`
+produces `dist/claude-mission-control.mcpb` (validated manifest, bundled server with zero runtime
+dependencies, self-contained dashboard), verified by an automated stdio smoke test in CI. Install
+instructions, data locations, update and uninstall guidance: [`docs/INSTALL.md`](docs/INSTALL.md).
+
 **Phase 8 — End-to-end workflows** is complete: all eight required scenarios (plan a project,
 work tasks, record decisions and validation results, checkpoint, continue in a new conversation,
 export/import, bulk preview/approve) run as repeatable tests through the real MCP client, each
@@ -117,4 +122,4 @@ tools, persistence, and single-file UI all verified. One host limitation is docu
 extension tools to the model (Claude Code sessions in the same app do). Re-tested after each
 Claude Desktop update.
 
-Next: **Phase 9 — Packaging (`.mcpb` bundle).**
+Next: **Phase 10 — Portfolio polish** (after the clean-install test passes).

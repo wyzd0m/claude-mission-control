@@ -20,12 +20,18 @@
     "test": "vitest run",
     "verify": "npm run typecheck && npm run lint && npm run format:check && npm run test",
     "build:dashboard": "npm run build -w @mission-control/ui",
+    "build:bundle": "node scripts/make-bundle.mjs",
+    "smoke:bundle": "node scripts/smoke-bundle.mjs",
+    "pack": "mcpb pack dist/bundle dist/claude-mission-control.mcpb",
+    "release": "npm run build:bundle && npm run smoke:bundle && npm run pack",
     "mcp:dev": "tsx packages/server/src/mcp/main.ts",
     "mcp:inspect": "npx @modelcontextprotocol/inspector npx tsx packages/server/src/mcp/main.ts"
   },
   "devDependencies": {
+    "@anthropic-ai/mcpb": "^2.1.2",
     "@eslint/js": "^10.0.1",
     "@types/node": "^26.1.0",
+    "esbuild": "^0.28.1",
     "eslint": "^10.6.0",
     "prettier": "^3.9.4",
     "tsx": "^4.23.0",

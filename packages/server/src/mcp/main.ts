@@ -11,7 +11,7 @@ import { createMissionControlServer, SERVER_VERSION } from "./server.js";
 
 async function main() {
   const dbPath = databaseFilePath();
-  const { db, appliedMigrations } = openDatabase(dbPath);
+  const { db, appliedMigrations, preMigrationBackupPath } = openDatabase(dbPath);
   console.error(
     `[mission-control] v${SERVER_VERSION} starting (db: ${dbPath}` +
       (appliedMigrations.length > 0
@@ -19,6 +19,9 @@ async function main() {
         : "") +
       `)`,
   );
+  if (preMigrationBackupPath !== null) {
+    console.error(`[mission-control] pre-migration backup written to ${preMigrationBackupPath}`);
+  }
 
   const ctx = createServiceContext(db);
   const activity = createActivityEventService(ctx);
