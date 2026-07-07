@@ -4,6 +4,7 @@ import type { HostBridge, ToolError } from "./bridge.js";
 import { ProjectHeader } from "./components/ProjectHeader.js";
 import { ActivityPanel } from "./components/ActivityPanel.js";
 import { WorkPanel } from "./components/WorkPanel.js";
+import { FacilityPanel } from "./facility/FacilityPanel.js";
 
 // The conventional dashboard (Phase 5). Renders the read-only DashboardState
 // projection and performs actions exclusively through Mission Control tools.
@@ -103,6 +104,7 @@ export function DashboardApp({ bridge }: { bridge: HostBridge }) {
 
       <div className="main">
         <div className="column">
+          <FacilityPanel state={state} />
           <ActivityPanel current={state.currentActivity} timeline={state.timeline} />
         </div>
         <div className="column">

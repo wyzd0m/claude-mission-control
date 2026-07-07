@@ -137,6 +137,24 @@ Resolves the library question left open by D-014. The storage adapter uses `node
 - Verified by the Phase 2 test suite: migrations, transactions, foreign keys, `VACUUM INTO`
   backups, and WAL journaling all work on Node 24.
 
+## D-023 — Phase 6 facility scene semantics
+
+**Status:** Accepted
+
+- Floor plan: Command Core centered, seven departments on a fixed 3x3 grid with straight
+  predefined paths from the core; the front-center cell stays open as the entrance walkway.
+- The renderer draws a deterministic `SceneState` derived purely from `DashboardState`
+  (`packages/ui/src/facility/scene-state.ts`): room activity comes only from open persisted
+  events, failure marks come from the newest timeline event per department, and the saved stage
+  strengthens exactly one mapped room (discovery→Research Archive, planning→Planning Bay,
+  building→Build Workshop, testing→Testing Lab, reviewing→Memory Vault, shipping→Delivery Dock,
+  maintenance→Command Core).
+- Phase 6 places the robot statically (Command Core when idle, else the open event's department);
+  travel animation is Phase 7. The only ambient motion is the Command Core hologram's slow
+  rotation, which stops in reduced-motion mode (frameloop switches to on-demand).
+- The 2D status map fallback renders the same SceneState as text and is used when WebGL is
+  unavailable or 3D is disabled. Room click-through interactions are deferred to Phase 7/8.
+
 ## D-022 — Dashboard state reads are not activity events
 
 **Status:** Accepted

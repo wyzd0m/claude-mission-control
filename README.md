@@ -68,6 +68,11 @@ A user should be able to:
 
 ## Current phase
 
+**Phase 6 — Static facility** is complete: a procedural low-poly isometric facility (Command Core,
+seven department rooms, paths, one robot — all code-generated primitives) renders inside the
+dashboard from a deterministic scene state. Rooms react only to persisted events and the saved
+stage; reduce-motion and a text-only 2D fallback are built in.
+
 **Phase 5 — Conventional dashboard** is complete: a React MCP App rendered by
 `open_mission_control` shows the project header, stage bar, exact activity panel, event timeline,
 tasks, decisions, checkpoints, and diagnostics — fully usable without any 3D. Inspect it locally
@@ -101,4 +106,4 @@ tools, persistence, and single-file UI all verified. One host limitation is docu
 extension tools to the model (Claude Code sessions in the same app do). Re-tested after each
 Claude Desktop update.
 
-Next: **Phase 6 — Static facility (procedural low-poly isometric scene).**
+Next: **Phase 7 — Event-driven animation.**

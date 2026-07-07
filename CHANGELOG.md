@@ -8,6 +8,13 @@ Version 1.0.0 is the first one-click release described in `docs/IMPLEMENTATION_R
 
 ### Added
 
+- Phase 6 static facility: procedural low-poly isometric scene (Three.js / React Three Fiber, no
+  imported models) with Command Core, seven department rooms with signature props, floor paths,
+  and one robot. Rooms light from a deterministic scene state derived purely from the dashboard
+  read model (stage highlight, working, waiting-amber, failure marks). Reduce-motion and
+  Disable-3D toggles, WebGL detection, and a text-only 2D status map fallback. 7 scene-state
+  tests (120 total).
+
 - Phase 5 conventional dashboard: a React MCP App (single-file HTML) with project selector, stage
   bar, exact current-activity panel, event timeline, task/decision/checkpoint views with forms,
   diagnostics, and an error banner showing stable codes with recovery hints. New

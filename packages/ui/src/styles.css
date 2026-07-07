@@ -254,3 +254,10 @@ form.inline {
   border-color: var(--warn);
   color: var(--warn);
 }
+
+.facility-viewport {
+  height: 340px;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
