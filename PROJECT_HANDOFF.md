@@ -149,6 +149,9 @@ recovery}}` contract), `ui-resource.ts` (dashboard HTML resolution: CMC_UI_HTML 
     office diorama".
 11. **Responsive layout pass**: facility viewport `clamp(340px, 62vh, 980px)`, camera zoom tracks
     canvas size (`ResponsiveZoom`), app max-width 2000px. Facility now fills large monitors.
+12. **Polish goal — real text signage** (2026-07-08, D-026): readable department nameplates on
+    every door (offscreen-canvas textures, system font, both faces) plus a freestanding Command
+    Hub sign. 154 tests.
 
 User-verified on hardware: extension installed in Claude Desktop, dashboard widget renders in
 chat, diagnostics healthy, data survives restarts, monitor updates live while Claude works.
@@ -173,7 +176,9 @@ Mission Control project ("Mission Control Monitor", the active project in their 
 
 1. **Per-department robot work animations** — unique gestures/props per room (place task card,
    file cartridge, package export) instead of the shared typing bob. (medium)
-2. **Real 3D text signage** for departments (SDF/sprite labels, keep low-poly look). (low)
+2. ~~Real 3D text signage~~ — **DONE 2026-07-08** (D-026): canvas-sprite plaques above every
+   door + freestanding Command Hub sign (`packages/ui/src/facility/signage.tsx`); task closed in
+   the live DB and removed from the README list.
 3. **Multiple robots** for concurrent operations (capped instances). (medium)
 4. **In-dashboard approval buttons** — approve/reject Security Gate previews from the dashboard
    instead of only in conversation. (medium; requires monitor write-path or host tool calls.)
