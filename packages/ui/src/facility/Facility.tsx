@@ -18,7 +18,7 @@ import {
   ResearchOffice,
   TestingWorkspace,
 } from "./office.js";
-import { AnimatedRobot, StaticRobot } from "./robot.js";
+import { AnimatedRobots, StaticRobots } from "./robot.js";
 
 // The office diorama (visual redesign, Stages 1-4). Everything is generated
 // from primitives in code — no imported models. The scene renders the
@@ -111,11 +111,10 @@ export function Facility({
   dashboard: DashboardState;
   reducedMotion: boolean;
 }) {
-  const [live, setLive] = useState<LiveActivity | null>(null);
-  const [route, setRoute] = useState<Point[] | null>(null);
+  const [lives, setLives] = useState<LiveActivity[]>([]);
+  const [routes, setRoutes] = useState<Point[][]>([]);
 
-  const liveFor = (department: string) =>
-    live !== null && live.department === department ? live : undefined;
+  const liveFor = (department: string) => lives.find((live) => live.department === department);
   const roomFor = (department: string) =>
     scene.rooms.find((room) => room.department === department)!;
 
@@ -167,7 +166,7 @@ export function Facility({
       <HoloSpin
         idle={scene.idle}
         reducedMotion={reducedMotion}
-        emphasized={live !== null || !scene.idle}
+        emphasized={lives.length > 0 || !scene.idle}
       />
       <PlanningOffice room={roomFor("planning_bay")} live={liveFor("planning_bay")} />
       <ResearchOffice room={roomFor("research_archive")} live={liveFor("research_archive")} />
@@ -177,12 +176,18 @@ export function Facility({
       <ApprovalDesk room={roomFor("security_gate")} live={liveFor("security_gate")} />
       <DeliveryArea room={roomFor("delivery_dock")} live={liveFor("delivery_dock")} />
 
-      {route !== null && <RouteHighlight route={route} />}
+      {routes.map((route, i) => (
+        <RouteHighlight key={i} route={route} />
+      ))}
 
       {reducedMotion ? (
-        <StaticRobot at={scene.robotAt} />
+        <StaticRobots at={scene.robotAt} />
       ) : (
-        <AnimatedRobot dashboard={dashboard} onLiveActivity={setLive} onActiveRoute={setRoute} />
+        <AnimatedRobots
+          dashboard={dashboard}
+          onLiveActivities={setLives}
+          onActiveRoutes={setRoutes}
+        />
       )}
     </Canvas>
   );

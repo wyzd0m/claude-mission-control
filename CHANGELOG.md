@@ -8,6 +8,13 @@ Version 1.0.0 is the first one-click release described in `docs/IMPLEMENTATION_R
 
 ### Added
 
+- Robot fleet (D-028): three service robots instead of one — robot 0 rests at the Command Core
+  station and two more park on the hub's charging pads. Idle robots pick up jobs from a shared
+  queue, so concurrent Mission Control operations now animate concurrently; overflow jobs still
+  chain room-to-room. Exactly one robot holds at the Security Gate during approval waits, and
+  ambient pacing happens only when the whole fleet is idle. Larger, higher-resolution door
+  nameplates in the same pass. 1 new test (162 total).
+
 - Per-department robot work animations (D-027): the robot now performs a distinct gesture with a
   small procedural prop in every room — placing a task card in the Planning Bay, leafing through
   a book in the Research Archive, working a wrench in the Build Workshop, sweeping a glowing

@@ -12,9 +12,9 @@ const FLAT = { flatShading: true } as const;
 
 // Face texture proportions; kept small per VISUAL_DESIGN ("avoid large
 // textures") while staying crisp at monitor-window zoom levels.
-const CANVAS_WIDTH = 320;
-const CANVAS_HEIGHT = 64;
-const PADDING_X = 18;
+const CANVAS_WIDTH = 384;
+const CANVAS_HEIGHT = 80;
+const PADDING_X = 20;
 
 /** Draw a department label onto a plaque-face canvas. Exported for tests. */
 export function drawPlaqueFace(
@@ -28,11 +28,11 @@ export function drawPlaqueFace(
 
   // Thin accent keyline along the bottom edge — the department's color key.
   context.fillStyle = accent;
-  context.fillRect(PADDING_X, CANVAS_HEIGHT - 10, CANVAS_WIDTH - PADDING_X * 2, 4);
+  context.fillRect(PADDING_X, CANVAS_HEIGHT - 9, CANVAS_WIDTH - PADDING_X * 2, 4);
 
   // Fit the label between the side paddings, shrinking for long names.
   const family = '"Segoe UI", "Helvetica Neue", system-ui, sans-serif';
-  let size = 34;
+  let size = 44;
   context.font = `700 ${size}px ${family}`;
   const maxWidth = CANVAS_WIDTH - PADDING_X * 2;
   while (size > 14 && context.measureText(text).width > maxWidth) {
@@ -42,7 +42,7 @@ export function drawPlaqueFace(
   context.fillStyle = "#ffffff";
   context.textAlign = "center";
   context.textBaseline = "middle";
-  context.fillText(text, CANVAS_WIDTH / 2, (CANVAS_HEIGHT - 8) / 2, maxWidth);
+  context.fillText(text, CANVAS_WIDTH / 2, (CANVAS_HEIGHT - 7) / 2, maxWidth);
 }
 
 function makeLabelTexture(label: string, accent: string): THREE.CanvasTexture | null {
@@ -67,15 +67,15 @@ export function DoorPlaque({ label, accent }: { label: string; accent: string })
   const texture = useMemo(() => makeLabelTexture(label, accent), [label, accent]);
   useEffect(() => () => texture?.dispose(), [texture]);
   return (
-    <group position={[0, 2.08, 0]}>
+    <group position={[0, 2.12, 0]}>
       <mesh castShadow>
-        <boxGeometry args={[2.5, 0.5, 0.1]} />
+        <boxGeometry args={[3.1, 0.62, 0.1]} />
         <meshStandardMaterial color={M.charcoal} {...FLAT} />
       </mesh>
       {texture !== null &&
         ([0.056, -0.056] as const).map((z) => (
           <mesh key={z} position={[0, 0, z]} rotation={[0, z > 0 ? 0 : Math.PI, 0]}>
-            <planeGeometry args={[2.42, 0.484]} />
+            <planeGeometry args={[3.0, 0.625]} />
             <meshBasicMaterial map={texture} toneMapped={false} />
           </mesh>
         ))}

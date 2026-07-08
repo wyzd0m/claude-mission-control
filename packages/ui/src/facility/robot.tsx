@@ -3,13 +3,14 @@ import { useFrame } from "@react-three/fiber";
 import type * as THREE from "three";
 import type { DashboardState, Department } from "@mission-control/domain";
 import { M } from "./materials.js";
-import { ROOM_ACCENTS, STATIONS } from "./layout.js";
+import { ROBOT_HOME_POINTS, ROOM_ACCENTS, STATIONS } from "./layout.js";
 import {
   createAnimator,
   ingest,
   tick,
-  robotPlacement,
-  activeRoute,
+  robotPlacements,
+  activeRoutes,
+  ROBOT_COUNT,
   type LiveActivity,
 } from "./animation.js";
 import type { Point } from "./layout.js";
@@ -235,41 +236,60 @@ export function RobotBody({
   );
 }
 
-/** Static robot used in reduced-motion mode: parked at its rest station. */
-export function StaticRobot({ at }: { at: Department }) {
+/** Static fleet used in reduced-motion mode: robot 0 at its rest station,
+ *  the rest parked on their charging pads. */
+export function StaticRobots({ at }: { at: Department }) {
   const [x, z] = STATIONS[at];
   return (
-    <group position={[x, 0, z]} scale={1.15}>
-      <RobotBody />
-    </group>
+    <>
+      <group position={[x, 0, z]} scale={1.15}>
+        <RobotBody />
+      </group>
+      {ROBOT_HOME_POINTS.slice(1).map(([px, pz], i) => (
+        <group key={i} position={[px, 0, pz]} scale={1.15}>
+          <RobotBody />
+        </group>
+      ))}
+    </>
   );
 }
 
+interface RobotVisual {
+  statusColor: string;
+  carrying: Department | null;
+  gestureAt: Department | null;
+}
+
+const IDLE_VISUAL: RobotVisual = {
+  statusColor: STATUS_LIGHT.idle,
+  carrying: null,
+  gestureAt: null,
+};
+
 /**
- * Event-driven robot: the animator state lives in a ref and advances each
- * frame; React state updates happen only on discrete phase changes.
+ * Event-driven robot fleet (D-028): one animator state lives in a ref and
+ * advances each frame, dispatching jobs across the capped fleet; React
+ * state updates happen only on discrete phase changes.
  */
-export function AnimatedRobot({
+export function AnimatedRobots({
   dashboard,
-  onLiveActivity,
-  onActiveRoute,
+  onLiveActivities,
+  onActiveRoutes,
 }: {
   dashboard: DashboardState;
-  onLiveActivity: (live: LiveActivity | null) => void;
-  onActiveRoute: (route: Point[] | null) => void;
+  onLiveActivities: (lives: LiveActivity[]) => void;
+  onActiveRoutes: (routes: Point[][]) => void;
 }) {
   const animRef = useRef(createAnimator());
-  const groupRef = useRef<THREE.Group>(null);
-  const armsRef = useRef<THREE.Group>(null);
-  const propRef = useRef<THREE.Group>(null);
-  const headingRef = useRef(0);
+  const groupRefs = useRef<(THREE.Group | null)[]>([]);
+  const armsRefs = useRef<(THREE.Group | null)[]>([]);
+  const propRefs = useRef<(THREE.Group | null)[]>([]);
+  const headingRefs = useRef<number[]>(Array.from({ length: ROBOT_COUNT }, () => 0));
   const lastKeyRef = useRef("");
   const lastRouteKeyRef = useRef("");
-  const [visual, setVisual] = useState<{
-    statusColor: string;
-    carrying: Department | null;
-    gestureAt: Department | null;
-  }>({ statusColor: STATUS_LIGHT.idle, carrying: null, gestureAt: null });
+  const [visuals, setVisuals] = useState<RobotVisual[]>(
+    Array.from({ length: ROBOT_COUNT }, () => IDLE_VISUAL),
+  );
 
   useEffect(() => {
     animRef.current = ingest(animRef.current, dashboard);
@@ -277,88 +297,113 @@ export function AnimatedRobot({
 
   useFrame((frame, dt) => {
     animRef.current = tick(animRef.current, Math.min(dt, 0.25));
-    const placement = robotPlacement(animRef.current);
-    const group = groupRef.current;
-    if (group) {
-      const [x, z] = placement.position;
-      const bob =
-        placement.speed > 0.05 ? Math.abs(Math.sin(frame.clock.elapsedTime * 10)) * 0.05 : 0;
-      group.position.set(x, bob, z);
-      // Turn smoothly toward the current heading.
-      let delta = placement.heading - headingRef.current;
-      while (delta > Math.PI) delta -= Math.PI * 2;
-      while (delta < -Math.PI) delta += Math.PI * 2;
-      headingRef.current += delta * Math.min(1, dt * 8);
-      group.rotation.y = headingRef.current;
-      // Lean slightly into movement.
-      group.rotation.x = placement.speed * 0.07;
-    }
-    // Department gesture: animated channels while working, held still while
-    // the outcome plays, absent everywhere else (the prop unmounts).
-    const gesture =
-      placement.phase === "working" && placement.activeDepartment !== null
-        ? gestureFrame(DEPARTMENT_GESTURES[placement.activeDepartment], frame.clock.elapsedTime)
-        : GESTURE_REST;
-    const arms = armsRef.current;
-    if (arms) {
-      arms.position.y = gesture.armBob;
-      arms.rotation.x = gesture.armSwing;
-    }
-    const prop = propRef.current;
-    if (prop) {
-      prop.position.set(
-        PROP_REST_POSITION[0] + gesture.propOffset[0],
-        PROP_REST_POSITION[1] + gesture.propOffset[1],
-        PROP_REST_POSITION[2] + gesture.propOffset[2],
-      );
-      prop.rotation.x = gesture.propTilt;
-    }
+    const placements = robotPlacements(animRef.current);
 
-    const key = `${placement.phase}:${placement.activeDepartment ?? ""}:${placement.outcome ?? ""}:${placement.carrying ?? ""}`;
+    placements.forEach((placement, i) => {
+      const group = groupRefs.current[i];
+      if (group) {
+        const [x, z] = placement.position;
+        // Per-robot phase offsets keep simultaneous walks from moving in
+        // lockstep.
+        const bob =
+          placement.speed > 0.05
+            ? Math.abs(Math.sin(frame.clock.elapsedTime * 10 + i * 2.1)) * 0.05
+            : 0;
+        group.position.set(x, bob, z);
+        // Turn smoothly toward the current heading.
+        let delta = placement.heading - headingRefs.current[i]!;
+        while (delta > Math.PI) delta -= Math.PI * 2;
+        while (delta < -Math.PI) delta += Math.PI * 2;
+        headingRefs.current[i] = headingRefs.current[i]! + delta * Math.min(1, dt * 8);
+        group.rotation.y = headingRefs.current[i]!;
+        // Lean slightly into movement.
+        group.rotation.x = placement.speed * 0.07;
+      }
+      // Department gesture: animated channels while working, held still while
+      // the outcome plays, absent everywhere else (the prop unmounts).
+      const gesture =
+        placement.phase === "working" && placement.activeDepartment !== null
+          ? gestureFrame(
+              DEPARTMENT_GESTURES[placement.activeDepartment],
+              frame.clock.elapsedTime + i * 0.9,
+            )
+          : GESTURE_REST;
+      const arms = armsRefs.current[i];
+      if (arms) {
+        arms.position.y = gesture.armBob;
+        arms.rotation.x = gesture.armSwing;
+      }
+      const prop = propRefs.current[i];
+      if (prop) {
+        prop.position.set(
+          PROP_REST_POSITION[0] + gesture.propOffset[0],
+          PROP_REST_POSITION[1] + gesture.propOffset[1],
+          PROP_REST_POSITION[2] + gesture.propOffset[2],
+        );
+        prop.rotation.x = gesture.propTilt;
+      }
+    });
+
+    const key = placements
+      .map((p) => `${p.phase}:${p.activeDepartment ?? ""}:${p.outcome ?? ""}:${p.carrying ?? ""}`)
+      .join("|");
     if (key !== lastKeyRef.current) {
       lastKeyRef.current = key;
-      setVisual({
-        statusColor:
-          placement.phase === "outcome" && placement.outcome === "failed"
-            ? "#ff7a76"
-            : STATUS_LIGHT[placement.phase],
-        carrying: placement.carrying,
-        gestureAt:
-          placement.phase === "working" || placement.phase === "outcome"
-            ? placement.activeDepartment
-            : null,
-      });
-      onLiveActivity(
-        placement.phase === "working" || placement.phase === "outcome" || placement.phase === "gate"
-          ? {
-              department: placement.activeDepartment!,
-              phase: placement.phase,
-              outcome: placement.outcome,
-            }
-          : null,
+      setVisuals(
+        placements.map((placement) => ({
+          statusColor:
+            placement.phase === "outcome" && placement.outcome === "failed"
+              ? "#ff7a76"
+              : STATUS_LIGHT[placement.phase],
+          carrying: placement.carrying,
+          gestureAt:
+            placement.phase === "working" || placement.phase === "outcome"
+              ? placement.activeDepartment
+              : null,
+        })),
+      );
+      onLiveActivities(
+        placements
+          .filter((p) => p.phase === "working" || p.phase === "outcome" || p.phase === "gate")
+          .map((p) => ({
+            department: p.activeDepartment!,
+            phase: p.phase as LiveActivity["phase"],
+            outcome: p.outcome,
+          })),
       );
     }
-    const route = activeRoute(animRef.current);
-    const routeKey = route === null ? "" : route.map((p) => p.join(",")).join(";");
+    const routes = activeRoutes(animRef.current);
+    const routeKey = routes.map((route) => route.map((p) => p.join(",")).join(";")).join("~");
     if (routeKey !== lastRouteKeyRef.current) {
       lastRouteKeyRef.current = routeKey;
-      onActiveRoute(route);
+      onActiveRoutes(routes);
     }
   });
 
   return (
-    <group
-      ref={groupRef}
-      position={[STATIONS.command_core[0], 0, STATIONS.command_core[1]]}
-      scale={1.15}
-    >
-      <RobotBody
-        statusColor={visual.statusColor}
-        carrying={visual.carrying}
-        gestureAt={visual.gestureAt}
-        armsRef={armsRef}
-        propRef={propRef}
-      />
-    </group>
+    <>
+      {Array.from({ length: ROBOT_COUNT }, (_, i) => (
+        <group
+          key={i}
+          ref={(el) => {
+            groupRefs.current[i] = el;
+          }}
+          position={[ROBOT_HOME_POINTS[i]![0], 0, ROBOT_HOME_POINTS[i]![1]]}
+          scale={1.15}
+        >
+          <RobotBody
+            statusColor={visuals[i]!.statusColor}
+            carrying={visuals[i]!.carrying}
+            gestureAt={visuals[i]!.gestureAt}
+            armsRef={(el) => {
+              armsRefs.current[i] = el;
+            }}
+            propRef={(el) => {
+              propRefs.current[i] = el;
+            }}
+          />
+        </group>
+      ))}
+    </>
   );
 }

@@ -107,7 +107,6 @@ The facility is an interface for verified events, not an AI mind reader
 
 ## Polish goals (planned, tracked in Mission Control itself)
 
-- Multiple robot instances for concurrent operations.
 - In-dashboard approve/reject buttons for Security Gate previews.
 - Push-based live updates below the current 2.5 s poll.
 - macOS hardware verification.

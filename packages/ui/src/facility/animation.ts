@@ -1,6 +1,7 @@
 import type { DashboardState, Department, EventStatus } from "@mission-control/domain";
 import {
   AMBIENT_PAUSE_POINT,
+  ROBOT_HOME_POINTS,
   STATIONS,
   ROOM_POSITIONS,
   pointAlongRoute,
@@ -9,17 +10,21 @@ import {
   type Point,
 } from "./layout.js";
 
-// Pure presentation state machine (visual redesign, Stage 3). Robots walk
-// the office's waypoint routes — never teleporting — and animate only
-// persisted Mission Control events observed through the dashboard read model:
+// Pure presentation state machine (visual redesign, Stage 3; fleet in
+// D-028). A capped fleet of robots walks the office's waypoint routes —
+// never teleporting — and animates only persisted Mission Control events
+// observed through the dashboard read model:
 //   - a newly observed event becomes one replay job:
 //     travel → working → outcome → (travel to the next job, or return)
+//   - jobs are dispatched to idle robots, so concurrent operations animate
+//     concurrently; when jobs outnumber robots they chain room-to-room
 //   - an event that is still open loops in `working` until a later poll
 //     shows its terminal status; the outcome then plays truthfully
-//   - open waiting_for_input events make the robot WALK to the Approval
-//     Desk and hold there; when the wait clears it walks home
-//   - when idle long enough, the robot paces a short ambient line in front
-//     of the Command Hub — atmosphere only, never presented as work
+//   - open waiting_for_input events send one robot WALKING to the Approval
+//     Desk to hold there; when the wait clears it walks home
+//   - when the whole fleet is idle long enough, robot 0 paces a short
+//     ambient line in front of the Command Hub — atmosphere only, never
+//     presented as work
 //   - the very first ingest marks history as seen WITHOUT animating, so a
 //     reload restores the correct quiet state instead of replaying the past
 
@@ -28,7 +33,7 @@ export type JobKind = "task" | "ambient" | "reposition";
 export type AnimationPhase = "travel" | "working" | "outcome" | "return";
 export type RestPoint = "command_core" | "security_gate";
 
-/** What the animator is presenting right now, for room lighting. */
+/** What a robot is presenting right now, for room lighting. */
 export interface LiveActivity {
   department: Department;
   phase: "working" | "outcome" | "gate";
@@ -54,17 +59,22 @@ export interface CurrentAnimation {
   restTarget?: RestPoint;
 }
 
+/** One robot of the fleet. */
+export interface RobotUnitState {
+  current: CurrentAnimation | null;
+  restAt: RestPoint;
+}
+
 export interface AnimatorState {
   initialized: boolean;
   seen: Record<string, EventStatus>;
   queue: AnimationJob[];
-  current: CurrentAnimation | null;
+  robots: RobotUnitState[];
   holdAtGate: boolean;
-  /** Where the robot stands when it has nothing to do. */
-  restAt: RestPoint;
   idleElapsed: number;
 }
 
+export const ROBOT_COUNT = ROBOT_HOME_POINTS.length;
 export const ROBOT_SPEED = 3.4; // world units per second
 export const AMBIENT_INTERVAL = 12; // seconds of idleness before a pace
 export const PHASE_DURATIONS = {
@@ -73,7 +83,7 @@ export const PHASE_DURATIONS = {
   ambientPause: 1.6,
 } as const;
 
-const MAX_QUEUE = 4;
+const MAX_QUEUE = 6;
 const TERMINAL: readonly EventStatus[] = ["succeeded", "failed", "cancelled"];
 
 export function travelDuration(length: number): number {
@@ -89,15 +99,40 @@ export function createAnimator(): AnimatorState {
     initialized: false,
     seen: {},
     queue: [],
-    current: null,
+    robots: Array.from({ length: ROBOT_COUNT }, () => ({
+      current: null,
+      restAt: "command_core",
+    })),
     holdAtGate: false,
-    restAt: "command_core",
     idleElapsed: 0,
   };
 }
 
 function outcomeOf(status: EventStatus): JobOutcome {
   return TERMINAL.includes(status) ? (status as JobOutcome) : "open";
+}
+
+/** Where robot `index` parks when idle. */
+function homePoint(index: number, restAt: RestPoint): Point {
+  return restAt === "security_gate" ? STATIONS.security_gate : ROBOT_HOME_POINTS[index]!;
+}
+
+/** Walking route from robot `index`'s parking spot to a department station. */
+function routeFromHome(index: number, restAt: RestPoint, to: Department): Point[] {
+  const base = routeBetween(restAt, to);
+  const home = homePoint(index, restAt);
+  const [firstX, firstZ] = base[0]!;
+  if (Math.abs(home[0] - firstX) < 1e-6 && Math.abs(home[1] - firstZ) < 1e-6) return base;
+  return [home, ...base];
+}
+
+/** Walking route from a department station back to a parking spot. */
+function routeToHome(index: number, from: Department, restTarget: RestPoint): Point[] {
+  const base = routeBetween(from, restTarget);
+  const home = homePoint(index, restTarget);
+  const [lastX, lastZ] = base[base.length - 1]!;
+  if (Math.abs(home[0] - lastX) < 1e-6 && Math.abs(home[1] - lastZ) < 1e-6) return base;
+  return [...base, home];
 }
 
 function travelAnimation(
@@ -155,9 +190,13 @@ export function ingest(state: AnimatorState, dashboard: DashboardState): Animato
       : job;
   };
   const queue = [...state.queue.map(updateJob), ...newJobs].slice(-MAX_QUEUE);
-  const current = state.current ? { ...state.current, job: updateJob(state.current.job) } : null;
+  const robots = state.robots.map((robot) =>
+    robot.current
+      ? { ...robot, current: { ...robot.current, job: updateJob(robot.current.job) } }
+      : robot,
+  );
 
-  return { ...state, seen, queue, current, holdAtGate, idleElapsed: 0 };
+  return { ...state, seen, queue, robots, holdAtGate, idleElapsed: 0 };
 }
 
 function ambientJob(): AnimationJob {
@@ -173,104 +212,183 @@ function repositionJob(target: RestPoint): AnimationJob {
   };
 }
 
+/** True when some robot rests at the gate or is on its way there. */
+function gateCovered(robots: RobotUnitState[]): boolean {
+  return robots.some(
+    (robot) =>
+      (robot.current === null && robot.restAt === "security_gate") ||
+      (robot.current !== null &&
+        (robot.current.restTarget === "security_gate" ||
+          (robot.current.job.kind === "reposition" &&
+            robot.current.job.department === "security_gate"))),
+  );
+}
+
+/** Advance one robot's current animation by dt. Returns [unit, queue]. */
+function advanceRobot(
+  index: number,
+  robot: RobotUnitState,
+  queue: AnimationJob[],
+  holdAtGate: boolean,
+  gateIsCovered: boolean,
+  dt: number,
+): [RobotUnitState, AnimationJob[]] {
+  const current = robot.current;
+  if (current === null) return [robot, queue];
+
+  const elapsed = current.elapsed + dt;
+  const duration =
+    current.phase === "travel" || current.phase === "return"
+      ? current.duration
+      : current.phase === "working"
+        ? current.job.kind === "ambient"
+          ? PHASE_DURATIONS.ambientPause
+          : PHASE_DURATIONS.working
+        : PHASE_DURATIONS.outcome;
+
+  // An open task keeps working until its event completes.
+  if (
+    current.phase === "working" &&
+    current.job.kind === "task" &&
+    current.job.outcome === "open"
+  ) {
+    return [{ ...robot, current: { ...current, elapsed: Math.min(elapsed, duration) } }, queue];
+  }
+
+  if (elapsed < duration) {
+    return [{ ...robot, current: { ...current, elapsed } }, queue];
+  }
+
+  switch (current.phase) {
+    case "travel": {
+      if (current.job.kind === "reposition") {
+        return [{ ...robot, current: null, restAt: current.job.department as RestPoint }, queue];
+      }
+      return [{ ...robot, current: { ...current, phase: "working", elapsed: 0 } }, queue];
+    }
+    case "working": {
+      if (current.job.kind === "ambient") {
+        const back = [...current.route].reverse();
+        return [{ ...robot, current: travelAnimation(current.job, back, "return") }, queue];
+      }
+      return [{ ...robot, current: { ...current, phase: "outcome", elapsed: 0 } }, queue];
+    }
+    case "outcome": {
+      const [next, ...rest] = queue;
+      if (next !== undefined) {
+        const route = routeBetween(current.job.department, next.department);
+        return [{ ...robot, current: travelAnimation(next, route) }, rest];
+      }
+      const home: RestPoint = holdAtGate && !gateIsCovered ? "security_gate" : "command_core";
+      const route = routeToHome(index, current.job.department, home);
+      return [
+        {
+          ...robot,
+          current: { ...travelAnimation(current.job, route, "return"), restTarget: home },
+        },
+        queue,
+      ];
+    }
+    case "return": {
+      if (current.job.kind === "ambient") {
+        return [{ ...robot, current: null }, queue];
+      }
+      return [{ ...robot, current: null, restAt: current.restTarget ?? "command_core" }, queue];
+    }
+  }
+}
+
 /** Advance the animation clock. Pure: returns the next state. */
 export function tick(state: AnimatorState, dt: number): AnimatorState {
   if (!state.initialized) return state;
 
-  let { current } = state;
+  let queue = state.queue;
+  const robots = [...state.robots];
+  let idleTouched = false;
 
-  // A real job preempts ambient pacing instantly. Ambient stays on the
-  // Command Hub's entrance lane, so prepending the robot's live position to
-  // a core-starting route keeps the whole path on open floor.
-  const nextReal = state.queue[0];
-  if (current !== null && current.job.kind === "ambient" && nextReal !== undefined) {
-    const here = robotPlacement(state).position;
-    const base = routeBetween("command_core", nextReal.department);
-    current = travelAnimation(nextReal, [here, ...base]);
-    return { ...state, queue: state.queue.slice(1), current, idleElapsed: 0 };
+  // Advance every robot's current animation.
+  for (let i = 0; i < robots.length; i++) {
+    const covered = gateCovered(robots.filter((_, j) => j !== i));
+    const [unit, nextQueue] = advanceRobot(i, robots[i]!, queue, state.holdAtGate, covered, dt);
+    robots[i] = unit;
+    queue = nextQueue;
   }
 
-  if (current !== null) {
-    const elapsed = current.elapsed + dt;
-    const duration =
-      current.phase === "travel" || current.phase === "return"
-        ? current.duration
-        : current.phase === "working"
-          ? current.job.kind === "ambient"
-            ? PHASE_DURATIONS.ambientPause
-            : PHASE_DURATIONS.working
-          : PHASE_DURATIONS.outcome;
+  // Dispatch queued jobs to idle robots (lowest id first, deterministic).
+  for (let i = 0; i < robots.length && queue.length > 0; i++) {
+    const robot = robots[i]!;
+    if (robot.current !== null) continue;
+    const [next, ...rest] = queue;
+    robots[i] = {
+      ...robot,
+      current: travelAnimation(next!, routeFromHome(i, robot.restAt, next!.department)),
+    };
+    queue = rest;
+    idleTouched = true;
+  }
 
-    // An open task keeps working until its event completes.
-    if (
-      current.phase === "working" &&
-      current.job.kind === "task" &&
-      current.job.outcome === "open"
-    ) {
-      return { ...state, current: { ...current, elapsed: Math.min(elapsed, duration) } };
-    }
-
-    if (elapsed < duration) {
-      return { ...state, current: { ...current, elapsed } };
-    }
-
-    switch (current.phase) {
-      case "travel": {
-        if (current.job.kind === "reposition") {
-          return { ...state, current: null, restAt: current.job.department as RestPoint };
-        }
-        return { ...state, current: { ...current, phase: "working", elapsed: 0 } };
-      }
-      case "working": {
-        if (current.job.kind === "ambient") {
-          const back = [...current.route].reverse();
-          return { ...state, current: travelAnimation(current.job, back, "return") };
-        }
-        return { ...state, current: { ...current, phase: "outcome", elapsed: 0 } };
-      }
-      case "outcome": {
-        const [next, ...rest] = state.queue;
-        if (next !== undefined) {
-          const route = routeBetween(current.job.department, next.department);
-          return { ...state, queue: rest, current: travelAnimation(next, route) };
-        }
-        const home: RestPoint = state.holdAtGate ? "security_gate" : "command_core";
-        const route = routeBetween(current.job.department, home);
-        return {
-          ...state,
-          current: { ...travelAnimation(current.job, route, "return"), restTarget: home },
-        };
-      }
-      case "return": {
-        if (current.job.kind === "ambient") {
-          return { ...state, current: null, idleElapsed: 0 };
-        }
-        return { ...state, current: null, restAt: current.restTarget ?? "command_core" };
-      }
+  // If jobs remain and a robot is only ambient-pacing, it takes one over
+  // seamlessly from its live position (no jump).
+  if (queue.length > 0) {
+    const i = robots.findIndex((r) => r.current !== null && r.current.job.kind === "ambient");
+    if (i >= 0) {
+      const here = robotPlacements({ ...state, robots, queue })[i]!.position;
+      const [next, ...rest] = queue;
+      const base = routeBetween("command_core", next!.department);
+      robots[i] = { ...robots[i]!, current: travelAnimation(next!, [here, ...base]) };
+      queue = rest;
+      idleTouched = true;
     }
   }
 
-  // Nothing playing: start queued work, walk to/from the gate, or idle.
-  const [next, ...rest] = state.queue;
-  if (next !== undefined) {
-    const route = routeBetween(state.restAt, next.department);
-    return { ...state, queue: rest, current: travelAnimation(next, route), idleElapsed: 0 };
+  // Gate coverage: send one idle robot to hold at the Approval Desk, and
+  // send a gate-parked robot home once the wait clears.
+  if (state.holdAtGate && !gateCovered(robots)) {
+    const i = robots.findIndex((r) => r.current === null);
+    if (i >= 0) {
+      const robot = robots[i]!;
+      robots[i] = {
+        ...robot,
+        current: travelAnimation(
+          repositionJob("security_gate"),
+          routeFromHome(i, robot.restAt, "security_gate"),
+        ),
+      };
+      idleTouched = true;
+    }
   }
-  if (state.holdAtGate && state.restAt !== "security_gate") {
-    const route = routeBetween(state.restAt, "security_gate");
-    return { ...state, current: travelAnimation(repositionJob("security_gate"), route) };
-  }
-  if (!state.holdAtGate && state.restAt !== "command_core") {
-    const route = routeBetween(state.restAt, "command_core");
-    return { ...state, current: travelAnimation(repositionJob("command_core"), route) };
+  if (!state.holdAtGate) {
+    const i = robots.findIndex((r) => r.current === null && r.restAt === "security_gate");
+    if (i >= 0) {
+      const robot = robots[i]!;
+      robots[i] = {
+        ...robot,
+        current: travelAnimation(
+          repositionJob("command_core"),
+          routeFromHome(i, robot.restAt, "command_core"),
+        ),
+      };
+      idleTouched = true;
+    }
   }
 
+  // Ambient pacing: robot 0 only, and only when the whole fleet is idle.
+  const allIdle = robots.every((r) => r.current === null);
+  if (idleTouched || !allIdle || state.holdAtGate) {
+    return {
+      ...state,
+      robots,
+      queue,
+      idleElapsed: allIdle && !idleTouched ? state.idleElapsed : 0,
+    };
+  }
   const idleElapsed = state.idleElapsed + dt;
-  if (idleElapsed >= AMBIENT_INTERVAL && state.restAt === "command_core") {
+  if (idleElapsed >= AMBIENT_INTERVAL && robots[0]!.restAt === "command_core") {
     const route: Point[] = [STATIONS.command_core, AMBIENT_PAUSE_POINT];
-    return { ...state, idleElapsed: 0, current: travelAnimation(ambientJob(), route) };
+    robots[0] = { ...robots[0]!, current: travelAnimation(ambientJob(), route) };
+    return { ...state, robots, queue, idleElapsed: 0 };
   }
-  return { ...state, idleElapsed };
+  return { ...state, robots, queue, idleElapsed };
 }
 
 export interface RobotPlacement {
@@ -294,14 +412,15 @@ function stationHeading(department: Department): number {
   return Math.atan2(cx - sx, cz - sz);
 }
 
-export function robotPlacement(state: AnimatorState): RobotPlacement {
+function placementFor(state: AnimatorState, index: number): RobotPlacement {
   const none = {
     speed: 0,
     activeDepartment: null as Department | null,
     outcome: null as JobOutcome | null,
     carrying: null as Department | null,
   };
-  const { current } = state;
+  const robot = state.robots[index]!;
+  const { current } = robot;
 
   if (current !== null) {
     if (current.phase === "travel" || current.phase === "return") {
@@ -347,7 +466,7 @@ export function robotPlacement(state: AnimatorState): RobotPlacement {
     };
   }
 
-  if (state.holdAtGate && state.restAt === "security_gate") {
+  if (state.holdAtGate && robot.restAt === "security_gate") {
     return {
       ...none,
       position: STATIONS.security_gate,
@@ -358,17 +477,24 @@ export function robotPlacement(state: AnimatorState): RobotPlacement {
   }
   return {
     ...none,
-    position: STATIONS[state.restAt],
-    heading: state.restAt === "command_core" ? 0 : stationHeading(state.restAt),
+    position: homePoint(index, robot.restAt),
+    heading: robot.restAt === "command_core" ? 0 : stationHeading(robot.restAt),
     phase: "idle",
   };
 }
 
-/** Route to highlight on the floor while a task robot is travelling. */
-export function activeRoute(state: AnimatorState): Point[] | null {
-  const { current } = state;
-  if (current !== null && current.job.kind === "task" && current.phase === "travel") {
-    return current.route;
-  }
-  return null;
+/** Placements for the whole fleet, index-aligned with the robots array. */
+export function robotPlacements(state: AnimatorState): RobotPlacement[] {
+  return state.robots.map((_, index) => placementFor(state, index));
+}
+
+/** Routes to highlight on the floor while task robots are travelling. */
+export function activeRoutes(state: AnimatorState): Point[][] {
+  return state.robots
+    .map((robot) => robot.current)
+    .filter(
+      (current): current is CurrentAnimation =>
+        current !== null && current.job.kind === "task" && current.phase === "travel",
+    )
+    .map((current) => current.route);
 }

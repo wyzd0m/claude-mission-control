@@ -49,15 +49,15 @@ describe("drawPlaqueFace", () => {
   });
 
   it("shrinks the font until long labels fit the plaque face", () => {
-    const wide = makeStubContext(24); // 16 chars * 24px would overflow at 34px
+    const wide = makeStubContext(24); // 16 chars * 24px would overflow at 44px
     drawPlaqueFace(wide.context, "Research Archive", "#9a8cff");
     const size = Number(/(\d+)px/.exec(wide.fontUsed())?.[1]);
-    expect(size).toBeLessThan(34);
+    expect(size).toBeLessThan(44);
     expect(size).toBeGreaterThanOrEqual(14);
 
     const narrow = makeStubContext(2);
     drawPlaqueFace(narrow.context, "Testing Lab", "#5fd39a");
-    expect(narrow.fontUsed()).toContain("34px");
+    expect(narrow.fontUsed()).toContain("44px");
   });
 
   it("passes a maxWidth clamp so text can never spill off the face", () => {

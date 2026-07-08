@@ -236,3 +236,13 @@ export function pointAlongRoute(
 
 /** Short ambient pacing line in front of the Command Hub (idle atmosphere). */
 export const AMBIENT_PAUSE_POINT: Point = [0, 2.9];
+
+/**
+ * Rest points for the robot fleet: the Command Core station plus the two
+ * charging pads in the hub. Fleet size is derived from this list.
+ */
+export const ROBOT_HOME_POINTS: readonly Point[] = [
+  STATIONS.command_core,
+  [-1.9, 0.9],
+  [-1.1, 1.7],
+];

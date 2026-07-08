@@ -137,6 +137,28 @@ Resolves the library question left open by D-014. The storage adapter uses `node
 - Verified by the Phase 2 test suite: migrations, transactions, foreign keys, `VACUUM INTO`
   backups, and WAL journaling all work on Node 24.
 
+## D-028 — Robot fleet for concurrent operations
+
+**Status:** Accepted (post-v1, version 0.2.0)
+
+The facility now runs a fixed fleet of three robots instead of one (polish goal "multiple
+robots"). Design:
+
+- Fleet size derives from `ROBOT_HOME_POINTS` in `layout.ts`: robot 0 rests at the Command Core
+  station; robots 1 and 2 park on the hub's two charging pads (which existed as scenery and now
+  have a purpose).
+- One shared FIFO job queue; idle robots take jobs lowest-id-first (deterministic). Concurrent
+  open events therefore animate concurrently; when jobs outnumber robots they chain
+  room-to-room exactly as before. The replay queue cap grows from 4 to 6.
+- Exactly one robot walks to and holds at the Approval Desk during a `waiting_for_input` event.
+  Ambient pacing remains robot 0 only, and only when the whole fleet is idle — parked robots
+  are visibly parked, so no motion implies unobserved work (truthfulness rules unchanged).
+- A job arriving while robot 0 ambient-paces goes to a parked robot first; the pacer is
+  preempted only when no other robot is free (it takes over from its live position, no jump).
+- The animator keeps one pure state (`robots: RobotUnitState[]`); the renderer's
+  `AnimatedRobots` drives N bodies with per-robot phase offsets so simultaneous walks do not
+  move in lockstep. Reduced-motion mode parks the whole fleet statically.
+
 ## D-027 — Per-department work gestures as pure motion profiles
 
 **Status:** Accepted (post-v1, version 0.2.0)

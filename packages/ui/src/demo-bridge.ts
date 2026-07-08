@@ -212,31 +212,37 @@ export function createDemoBridge(): HostBridge {
         polls += 1;
         // A new sample event roughly every third poll (~7.5 s).
         if (polls % 3 === 0) {
-          const spec = DEMO_CYCLE[cycleIndex % DEMO_CYCLE.length]!;
-          cycleIndex += 1;
-          const at = new Date().toISOString();
-          const demoEvent: ActivityEvent = {
-            id: `demo-live-${cycleIndex}`,
-            projectId: "demo-project",
-            correlationId: `demo-live-corr-${cycleIndex}`,
-            toolName: spec.toolName,
-            displayLabel: `${spec.displayLabel} (sample)`,
-            department: spec.department,
-            status: spec.status,
-            startedAt: at,
-            updatedAt: at,
-            completedAt: at,
-            progressCurrent: null,
-            progressTotal: null,
-            progressMessage: null,
-            relatedTaskIds: [],
-            requiresInput: false,
-            resultSummary: spec.status === "succeeded" ? "Sample operation completed." : null,
-            errorCode: spec.status === "failed" ? "SAMPLE_FAILURE" : null,
-            errorSummary: spec.status === "failed" ? "Sample failure for the demo." : null,
+          const emit = () => {
+            const spec = DEMO_CYCLE[cycleIndex % DEMO_CYCLE.length]!;
+            cycleIndex += 1;
+            const at = new Date().toISOString();
+            const demoEvent: ActivityEvent = {
+              id: `demo-live-${cycleIndex}`,
+              projectId: "demo-project",
+              correlationId: `demo-live-corr-${cycleIndex}`,
+              toolName: spec.toolName,
+              displayLabel: `${spec.displayLabel} (sample)`,
+              department: spec.department,
+              status: spec.status,
+              startedAt: at,
+              updatedAt: at,
+              completedAt: at,
+              progressCurrent: null,
+              progressTotal: null,
+              progressMessage: null,
+              relatedTaskIds: [],
+              requiresInput: false,
+              resultSummary: spec.status === "succeeded" ? "Sample operation completed." : null,
+              errorCode: spec.status === "failed" ? "SAMPLE_FAILURE" : null,
+              errorSummary: spec.status === "failed" ? "Sample failure for the demo." : null,
+            };
+            state.timeline = [demoEvent, ...state.timeline].slice(0, 12);
+            state.generatedAt = at;
           };
-          state.timeline = [demoEvent, ...state.timeline].slice(0, 12);
-          state.generatedAt = at;
+          emit();
+          // Every other beat sends a second, different operation so the
+          // fleet's concurrent dispatch can be inspected in a plain browser.
+          if (cycleIndex % 2 === 0) emit();
         }
       }
       return Promise.resolve({ ok: true, state: { ...state } });

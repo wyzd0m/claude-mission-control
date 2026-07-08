@@ -1,21 +1,23 @@
-// Animator tests (visual redesign, Stage 3): route-following travel with no
-// teleports, truthful outcomes, walking to and from the Approval Desk,
-// subtle ambient idling that real work preempts seamlessly, and reload
-// restoring quiet state instead of replaying history.
+// Animator tests (visual redesign, Stage 3; fleet in D-028): route-following
+// travel with no teleports, truthful outcomes, concurrent jobs dispatched
+// across a capped robot fleet, walking to and from the Approval Desk, subtle
+// ambient idling that real work preempts seamlessly, and reload restoring
+// quiet state instead of replaying history.
 import { describe, expect, it } from "vitest";
 import type { ActivityEvent, DashboardState } from "@mission-control/domain";
 import {
   createAnimator,
   ingest,
   tick,
-  robotPlacement,
-  activeRoute,
+  robotPlacements,
+  activeRoutes,
   travelDuration,
   AMBIENT_INTERVAL,
   PHASE_DURATIONS,
+  ROBOT_COUNT,
   type AnimatorState,
 } from "./animation.js";
-import { routeBetween, routeLength, STATIONS } from "./layout.js";
+import { ROBOT_HOME_POINTS, routeBetween, routeLength, STATIONS } from "./layout.js";
 
 const NOW = "2026-07-05T12:00:00.000Z";
 
@@ -78,9 +80,12 @@ describe("animator", () => {
   it("marks history as seen on first ingest without replaying (reload safety)", () => {
     const s = ingest(createAnimator(), dashboard([event({ id: "old" })]));
     expect(s.queue).toHaveLength(0);
-    expect(s.current).toBeNull();
-    expect(robotPlacement(s).phase).toBe("idle");
-    expect(robotPlacement(s).position).toEqual(STATIONS.command_core);
+    const placements = robotPlacements(s);
+    expect(placements).toHaveLength(ROBOT_COUNT);
+    for (const [i, placement] of placements.entries()) {
+      expect(placement.phase).toBe("idle");
+      expect(placement.position).toEqual(ROBOT_HOME_POINTS[i]);
+    }
   });
 
   it("replays a new event: walks the route, works at the station, shows the outcome, returns", () => {
@@ -88,39 +93,74 @@ describe("animator", () => {
     s = ingest(s, dashboard([event({ id: "new1", department: "memory_vault" })]));
 
     s = tick(s, 0.01);
-    expect(robotPlacement(s).phase).toBe("travel");
-    expect(activeRoute(s)).not.toBeNull();
+    expect(robotPlacements(s)[0]!.phase).toBe("travel");
+    expect(activeRoutes(s)).toHaveLength(1);
 
     s = play(s, travelTime("command_core", "memory_vault") + 0.1);
-    const working = robotPlacement(s);
+    const working = robotPlacements(s)[0]!;
     expect(working.phase).toBe("working");
     expect(working.activeDepartment).toBe("memory_vault");
     expect(working.position).toEqual(STATIONS.memory_vault);
 
     s = play(s, PHASE_DURATIONS.working + 0.1);
-    const outcome = robotPlacement(s);
+    const outcome = robotPlacements(s)[0]!;
     expect(outcome.phase).toBe("outcome");
     expect(outcome.outcome).toBe("succeeded");
 
     s = play(s, PHASE_DURATIONS.outcome + 0.1);
-    const returning = robotPlacement(s);
+    const returning = robotPlacements(s)[0]!;
     expect(returning.phase).toBe("return");
     expect(returning.carrying).toBe("memory_vault");
 
     s = play(s, travelTime("memory_vault", "command_core") + 0.1);
-    expect(robotPlacement(s).phase).toBe("idle");
-    expect(robotPlacement(s).position).toEqual(STATIONS.command_core);
+    expect(robotPlacements(s)[0]!.phase).toBe("idle");
+    expect(robotPlacements(s)[0]!.position).toEqual(STATIONS.command_core);
+  });
+
+  it("dispatches concurrent jobs to different robots", () => {
+    let s = ingest(createAnimator(), dashboard([]));
+    s = ingest(
+      s,
+      dashboard([
+        event({ id: "c2", department: "testing_lab" }),
+        event({ id: "c1", department: "planning_bay" }),
+      ]),
+    );
+    s = tick(s, 0.01);
+
+    const placements = robotPlacements(s);
+    expect(placements[0]!.phase).toBe("travel");
+    expect(placements[1]!.phase).toBe("travel");
+    expect(placements[2]!.phase).toBe("idle");
+    expect(activeRoutes(s)).toHaveLength(2);
+
+    // Each robot arrives at its own department.
+    s = play(s, 4.6);
+    const arrived = robotPlacements(s);
+    const active = arrived
+      .map((p) => p.activeDepartment)
+      .filter((d): d is NonNullable<typeof d> => d !== null)
+      .sort();
+    expect(active).toEqual(["planning_bay", "testing_lab"]);
   });
 
   it("never teleports: successive positions stay within walking distance", () => {
     let s = ingest(createAnimator(), dashboard([]));
-    s = ingest(s, dashboard([event({ id: "n1", department: "testing_lab" })]));
-    let previous = robotPlacement(s).position;
+    s = ingest(
+      s,
+      dashboard([
+        event({ id: "n1", department: "testing_lab" }),
+        event({ id: "n2", department: "delivery_dock" }),
+      ]),
+    );
+    let previous = robotPlacements(s).map((p) => p.position);
     for (let i = 0; i < 400; i++) {
       s = tick(s, 0.05);
-      const next = robotPlacement(s).position;
-      const jump = Math.hypot(next[0] - previous[0], next[1] - previous[1]);
-      expect(jump).toBeLessThan(0.5);
+      const next = robotPlacements(s).map((p) => p.position);
+      for (let r = 0; r < next.length; r++) {
+        const jump = Math.hypot(next[r]![0] - previous[r]![0], next[r]![1] - previous[r]![1]);
+        expect(jump).toBeLessThan(0.5);
+      }
       previous = next;
     }
   });
@@ -135,28 +175,33 @@ describe("animator", () => {
     });
     s = ingest(s, dashboard([], [open]));
     s = play(s, travelTime("command_core", "build_workshop") + PHASE_DURATIONS.working + 5);
-    expect(robotPlacement(s).phase).toBe("working");
+    expect(robotPlacements(s)[0]!.phase).toBe("working");
 
     s = ingest(
       s,
       dashboard([event({ id: "op1", status: "failed", department: "build_workshop" })]),
     );
     s = play(s, 0.3);
-    expect(robotPlacement(s).phase).toBe("outcome");
-    expect(robotPlacement(s).outcome).toBe("failed");
+    expect(robotPlacements(s)[0]!.phase).toBe("outcome");
+    expect(robotPlacements(s)[0]!.outcome).toBe("failed");
   });
 
-  it("chains queued jobs room-to-room without returning between", () => {
+  it("chains overflow jobs room-to-room once the fleet is saturated", () => {
     let s = ingest(createAnimator(), dashboard([]));
     s = ingest(
       s,
       dashboard([
+        event({ id: "e4", department: "build_workshop" }),
+        event({ id: "e3", department: "memory_vault" }),
         event({ id: "e2", department: "testing_lab" }),
         event({ id: "e1", department: "planning_bay" }),
       ]),
     );
-    expect(s.queue.map((j) => j.department)).toEqual(["planning_bay", "testing_lab"]);
+    s = tick(s, 0.01);
+    expect(s.queue.map((j) => j.department)).toEqual(["build_workshop"]);
 
+    // Robot 0 finishes planning_bay first (shortest route) and must pick up
+    // the overflow job, walking room-to-room without returning home.
     s = play(
       s,
       travelTime("command_core", "planning_bay") +
@@ -164,11 +209,14 @@ describe("animator", () => {
         PHASE_DURATIONS.outcome +
         0.3,
     );
-    const placement = robotPlacement(s);
+    const placement = robotPlacements(s)[0]!;
     expect(placement.phase).toBe("travel");
-    const route = activeRoute(s)!;
-    expect(route[0]).toEqual(STATIONS.planning_bay);
-    expect(route[route.length - 1]).toEqual(STATIONS.testing_lab);
+    const chained = activeRoutes(s).find(
+      (route) =>
+        route[0]![0] === STATIONS.planning_bay[0] && route[0]![1] === STATIONS.planning_bay[1],
+    );
+    expect(chained).toBeDefined();
+    expect(chained![chained!.length - 1]).toEqual(STATIONS.build_workshop);
   });
 
   it("does not re-animate events on repeated ingests", () => {
@@ -179,7 +227,7 @@ describe("animator", () => {
     expect(s.queue).toHaveLength(1);
   });
 
-  it("walks to the Approval Desk for an open wait and walks home afterwards", () => {
+  it("sends exactly one robot to the Approval Desk for an open wait", () => {
     let s = ingest(createAnimator(), dashboard([]));
     const waiting = event({
       id: "w1",
@@ -191,51 +239,66 @@ describe("animator", () => {
     s = ingest(s, dashboard([], [waiting]));
 
     s = tick(s, 0.05);
-    expect(robotPlacement(s).phase).toBe("travel"); // walking, not teleporting
+    const enRoute = robotPlacements(s).filter((p) => p.phase === "travel");
+    expect(enRoute).toHaveLength(1); // one robot walks, the rest stay parked
 
     s = play(s, travelTime("command_core", "security_gate") + 0.2);
-    const atGate = robotPlacement(s);
-    expect(atGate.phase).toBe("gate");
-    expect(atGate.position).toEqual(STATIONS.security_gate);
-    expect(atGate.activeDepartment).toBe("security_gate");
+    const placements = robotPlacements(s);
+    const atGate = placements.filter((p) => p.phase === "gate");
+    expect(atGate).toHaveLength(1);
+    expect(atGate[0]!.position).toEqual(STATIONS.security_gate);
+    expect(atGate[0]!.activeDepartment).toBe("security_gate");
 
     s = ingest(
       s,
       dashboard([event({ id: "w1", status: "cancelled", department: "security_gate" })]),
     );
     s = play(s, travelTime("security_gate", "command_core") + 0.3);
-    expect(robotPlacement(s).phase).toBe("idle");
-    expect(robotPlacement(s).position).toEqual(STATIONS.command_core);
+    for (const [i, placement] of robotPlacements(s).entries()) {
+      expect(placement.phase).toBe("idle");
+      expect(placement.position).toEqual(ROBOT_HOME_POINTS[i]);
+    }
   });
 
-  it("paces a short ambient line when idle, without lighting any room", () => {
+  it("paces a short ambient line when the whole fleet is idle, without lighting any room", () => {
     let s = ingest(createAnimator(), dashboard([]));
     s = play(s, AMBIENT_INTERVAL + 0.2);
-    const placement = robotPlacement(s);
-    expect(placement.phase).toBe("ambient");
-    expect(placement.activeDepartment).toBeNull();
-    expect(activeRoute(s)).toBeNull(); // ambient never highlights a route
+    const placements = robotPlacements(s);
+    expect(placements[0]!.phase).toBe("ambient");
+    expect(placements[0]!.activeDepartment).toBeNull();
+    expect(placements[1]!.phase).toBe("idle");
+    expect(placements[2]!.phase).toBe("idle");
+    expect(activeRoutes(s)).toHaveLength(0); // ambient never highlights a route
   });
 
   it("lets real work preempt ambient pacing without a position jump", () => {
     let s = ingest(createAnimator(), dashboard([]));
     s = play(s, AMBIENT_INTERVAL + 0.6);
-    const before = robotPlacement(s).position;
+    const before = robotPlacements(s)[0]!.position;
 
-    s = ingest(s, dashboard([event({ id: "task1", department: "planning_bay" })]));
+    // Three jobs: two go to the parked robots, the third takes over the
+    // ambient pacer from its live position.
+    s = ingest(
+      s,
+      dashboard([
+        event({ id: "t3", department: "memory_vault" }),
+        event({ id: "t2", department: "testing_lab" }),
+        event({ id: "t1", department: "planning_bay" }),
+      ]),
+    );
     s = tick(s, 0.05);
-    const after = robotPlacement(s);
-    expect(after.phase).toBe("travel");
-    const jump = Math.hypot(after.position[0] - before[0], after.position[1] - before[1]);
+    const after = robotPlacements(s);
+    expect(after.every((p) => p.phase === "travel")).toBe(true);
+    const jump = Math.hypot(after[0]!.position[0] - before[0], after[0]!.position[1] - before[1]);
     expect(jump).toBeLessThan(0.5);
   });
 
   it("caps the replay queue instead of growing without bound", () => {
     let s = ingest(createAnimator(), dashboard([]));
-    const many = Array.from({ length: 10 }, (_, i) =>
+    const many = Array.from({ length: 12 }, (_, i) =>
       event({ id: `bulk-${i}`, department: "planning_bay" }),
     );
     s = ingest(s, dashboard(many));
-    expect(s.queue.length).toBeLessThanOrEqual(4);
+    expect(s.queue.length).toBeLessThanOrEqual(6);
   });
 });
