@@ -105,6 +105,15 @@ The facility is an interface for verified events, not an AI mind reader
   success and failure.
 - A preview is never shown as completed work — it waits, amber, at the Security Gate.
 
+## Polish goals (planned, tracked in Mission Control itself)
+
+- Per-department robot work animations (unique gestures and props per room).
+- Real 3D text signage for departments.
+- Multiple robot instances for concurrent operations.
+- In-dashboard approve/reject buttons for Security Gate previews.
+- Push-based live updates below the current 2.5 s poll.
+- macOS hardware verification.
+
 ## Known limitations
 
 - **Host compatibility moves fast.** MCP Apps support in Claude Desktop is new; re-verify after

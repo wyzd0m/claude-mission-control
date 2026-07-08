@@ -63,6 +63,10 @@ button:disabled {
   height: 100%;
   padding: 12px;
   gap: 12px;
+  /* Keep the dashboard composed on very wide monitors. */
+  max-width: 2000px;
+  margin: 0 auto;
+  width: 100%;
 }
 
 .panel {
@@ -279,7 +283,9 @@ form.inline {
 }
 
 .facility-viewport {
-  height: 390px;
+  /* The facility is the highlight: grow with the window (the camera zoom
+     follows the canvas size), from the embedded widget to a full monitor. */
+  height: clamp(340px, 62vh, 980px);
   border-radius: 6px;
   overflow: hidden;
   border: 1px solid var(--border);

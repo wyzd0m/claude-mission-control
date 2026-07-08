@@ -1,5 +1,5 @@
-import { useRef, useState } from "react";
-import { Canvas, useFrame } from "@react-three/fiber";
+import { useEffect, useRef, useState } from "react";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import type * as THREE from "three";
 import type { DashboardState } from "@mission-control/domain";
 import { LIGHTING } from "./materials.js";
@@ -34,6 +34,24 @@ export function webglAvailable(): boolean {
   } catch {
     return false;
   }
+}
+
+/**
+ * Fit the diorama to the canvas: orthographic zoom scales with the viewport
+ * so the office is the highlight at every panel size, from the embedded
+ * chat widget to a full monitor window.
+ */
+function ResponsiveZoom() {
+  const camera = useThree((state) => state.camera);
+  const size = useThree((state) => state.size);
+  useEffect(() => {
+    const zoom = Math.min(Math.min(size.width, size.height * 1.55) / 33, 44);
+    if ("zoom" in camera) {
+      camera.zoom = Math.max(zoom, 8);
+      camera.updateProjectionMatrix();
+    }
+  }, [camera, size]);
+  return null;
 }
 
 /** Slow ambient rotation for the Command Hub hologram (identity, not work). */
@@ -111,6 +129,7 @@ export function Facility({
       style={{ width: "100%", height: "100%" }}
     >
       <color attach="background" args={["#0d1218"]} />
+      <ResponsiveZoom />
       <ambientLight color={LIGHTING.ambientColor} intensity={LIGHTING.ambientIntensity} />
       <hemisphereLight
         color={LIGHTING.hemiSky}
