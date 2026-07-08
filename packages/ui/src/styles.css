@@ -86,7 +86,7 @@ button:disabled {
 
 .main {
   display: grid;
-  grid-template-columns: minmax(280px, 5fr) minmax(280px, 7fr);
+  grid-template-columns: minmax(320px, 13fr) minmax(280px, 7fr);
   gap: 12px;
   flex: 1;
   min-height: 0;
@@ -255,6 +255,19 @@ form.inline {
   color: var(--warn);
 }
 
+.event-label {
+  font-weight: 600;
+}
+
+.dept-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 4px;
+  vertical-align: middle;
+}
+
 .monitor-banner {
   padding: 8px 12px;
   border-color: var(--accent);
@@ -266,7 +279,7 @@ form.inline {
 }
 
 .facility-viewport {
-  height: 340px;
+  height: 390px;
   border-radius: 6px;
   overflow: hidden;
   border: 1px solid var(--border);

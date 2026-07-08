@@ -1,9 +1,22 @@
+import { useEffect, useState } from "react";
 import type { ActivityEvent, CurrentActivity } from "@mission-control/domain";
 import { formatDateTime, formatTime, progressText, STATUS_TEXT } from "../format.js";
+import { ROOM_ACCENTS } from "../facility/layout.js";
 
 // The exact activity panel (docs/PRODUCT_REQUIREMENTS.md §7): shows only
 // persisted Mission Control events, verbatim. When idle, it shows the honest
 // idle message from the server and nothing else.
+
+/** Live elapsed counter for an operation that is still open. */
+function Elapsed({ since }: { since: string }) {
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const id = window.setInterval(() => setTick((n) => n + 1), 1000);
+    return () => window.clearInterval(id);
+  }, []);
+  const seconds = Math.max(0, Math.floor((Date.now() - new Date(since).getTime()) / 1000));
+  return <> · elapsed {seconds}s</>;
+}
 
 function EventRow({ event }: { event: ActivityEvent }) {
   const progress = progressText(event.progressCurrent, event.progressTotal);
@@ -11,13 +24,15 @@ function EventRow({ event }: { event: ActivityEvent }) {
     <li className="event-row">
       <div className="row">
         <span className={`status-text status-${event.status}`}>{STATUS_TEXT[event.status]}</span>
-        <span>{event.displayLabel}</span>
+        <span className="event-label">{event.displayLabel}</span>
         {event.requiresInput && <span className="badge approval">needs approval</span>}
       </div>
       <div className="event-meta">
-        {event.toolName} · {event.department.replace(/_/g, " ")} · started{" "}
-        {formatTime(event.startedAt)}
+        {event.toolName} ·{" "}
+        <span className="dept-dot" style={{ background: ROOM_ACCENTS[event.department] }} />
+        {event.department.replace(/_/g, " ")} · started {formatTime(event.startedAt)}
         {event.completedAt ? ` · finished ${formatTime(event.completedAt)}` : ""}
+        {!event.completedAt && <Elapsed since={event.startedAt} />}
         {progress ? ` · progress ${progress}` : ""}
       </div>
       {event.resultSummary && <div className="event-meta">Result: {event.resultSummary}</div>}
