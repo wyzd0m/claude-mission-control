@@ -14,6 +14,14 @@ Version 1.0.0 is the first one-click release described in `docs/IMPLEMENTATION_R
   Command Hub gets a freestanding sign. Replaces the unlabeled accent chips. 3 new tests
   (154 total).
 
+### Fixed
+
+- Launching the monitor while one is already running (for example double-clicking the desktop
+  shortcut twice, or while a dev session holds the port) no longer crashes with EADDRINUSE: the
+  launcher now detects the healthy running monitor, opens the browser to it, and exits cleanly.
+  A port held by a different application still fails, with a hint to set `CMC_MONITOR_PORT`.
+  2 new tests (156 total).
+
 - Standalone monitor (D-025): `npm run monitor` opens an always-on, read-only Mission Control
   window in your browser, outside Claude Desktop. It reads the shared local database directly
   (127.0.0.1 only, independent of conversation lifecycle) and live-updates as Claude works —

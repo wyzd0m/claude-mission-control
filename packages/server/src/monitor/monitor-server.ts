@@ -16,6 +16,8 @@ import { SERVER_VERSION } from "../mcp/server.js";
 // observes. Exposed as an embeddable function so a future native shell
 // (tray app / always-on-top window) can wrap it without changes.
 
+export const DEFAULT_MONITOR_PORT = 8642;
+
 export interface MonitorServerOptions {
   /** TCP port; 0 picks a free port. Default 8642. */
   port?: number;
@@ -27,6 +29,24 @@ export interface MonitorServer {
   port: number;
   url: string;
   close(): Promise<void>;
+}
+
+/**
+ * True when a healthy Mission Control monitor already answers on `port`.
+ * Lets launchers open the existing window instead of failing with
+ * EADDRINUSE when the monitor is started twice.
+ */
+export async function monitorAlreadyRunningAt(port: number): Promise<boolean> {
+  try {
+    const response = await fetch(`http://127.0.0.1:${port}/health`, {
+      signal: AbortSignal.timeout(2000),
+    });
+    if (!response.ok) return false;
+    const body = (await response.json()) as { ok?: boolean };
+    return body.ok === true;
+  } catch {
+    return false;
+  }
 }
 
 const JSON_HEADERS = {
@@ -78,7 +98,7 @@ export function startMonitorServer(options: MonitorServerOptions = {}): Promise<
   return new Promise((resolve, reject) => {
     server.once("error", reject);
     // 127.0.0.1 only: the monitor is never reachable from the network.
-    server.listen(options.port ?? 8642, "127.0.0.1", () => {
+    server.listen(options.port ?? DEFAULT_MONITOR_PORT, "127.0.0.1", () => {
       const address = server.address();
       const port = typeof address === "object" && address !== null ? address.port : 0;
       resolve({

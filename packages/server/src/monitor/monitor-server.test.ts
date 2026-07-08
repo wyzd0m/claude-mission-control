@@ -4,13 +4,18 @@
 // extension.
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import fs from "node:fs";
+import http from "node:http";
 import os from "node:os";
 import path from "node:path";
 import { createActivityEvent, transitionEvent, type DashboardState } from "@mission-control/domain";
 import { openDatabase } from "../storage/database.js";
 import { createServiceContext } from "../services/service-context.js";
 import { createProjectService } from "../services/project-service.js";
-import { startMonitorServer, type MonitorServer } from "./monitor-server.js";
+import {
+  monitorAlreadyRunningAt,
+  startMonitorServer,
+  type MonitorServer,
+} from "./monitor-server.js";
 
 let tmpDir: string;
 let dbPath: string;
@@ -100,5 +105,29 @@ describe("monitor server", () => {
   it("answers /health and 404s unknown paths", async () => {
     expect((await get("/health")).status).toBe(200);
     expect((await get("/nope")).status).toBe(404);
+  });
+
+  it("detects an already-running monitor so launchers can reuse it", async () => {
+    expect(await monitorAlreadyRunningAt(monitor.port)).toBe(true);
+
+    // A freed port is not a running monitor.
+    const second = await startMonitorServer({ port: 0, dbPath });
+    const freedPort = second.port;
+    await second.close();
+    expect(await monitorAlreadyRunningAt(freedPort)).toBe(false);
+  });
+
+  it("does not mistake another application for a monitor", async () => {
+    const impostor = http.createServer((_req, res) => {
+      res.writeHead(200, { "content-type": "text/plain" });
+      res.end("hello");
+    });
+    await new Promise<void>((resolve) => impostor.listen(0, "127.0.0.1", resolve));
+    const address = impostor.address();
+    const port = typeof address === "object" && address !== null ? address.port : 0;
+    expect(await monitorAlreadyRunningAt(port)).toBe(false);
+    await new Promise<void>((resolve, reject) =>
+      impostor.close((error) => (error ? reject(error) : resolve())),
+    );
   });
 });
