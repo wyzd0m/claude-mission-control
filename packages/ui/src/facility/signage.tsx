@@ -14,7 +14,7 @@ const FLAT = { flatShading: true } as const;
 // textures") while staying crisp at monitor-window zoom levels.
 const CANVAS_WIDTH = 320;
 const CANVAS_HEIGHT = 64;
-const PADDING_X = 22;
+const PADDING_X = 18;
 
 /** Draw a department label onto a plaque-face canvas. Exported for tests. */
 export function drawPlaqueFace(
@@ -32,14 +32,14 @@ export function drawPlaqueFace(
 
   // Fit the label between the side paddings, shrinking for long names.
   const family = '"Segoe UI", "Helvetica Neue", system-ui, sans-serif';
-  let size = 30;
-  context.font = `600 ${size}px ${family}`;
+  let size = 34;
+  context.font = `700 ${size}px ${family}`;
   const maxWidth = CANVAS_WIDTH - PADDING_X * 2;
   while (size > 14 && context.measureText(text).width > maxWidth) {
     size -= 1;
-    context.font = `600 ${size}px ${family}`;
+    context.font = `700 ${size}px ${family}`;
   }
-  context.fillStyle = M.paper;
+  context.fillStyle = "#ffffff";
   context.textAlign = "center";
   context.textBaseline = "middle";
   context.fillText(text, CANVAS_WIDTH / 2, (CANVAS_HEIGHT - 8) / 2, maxWidth);
@@ -67,15 +67,15 @@ export function DoorPlaque({ label, accent }: { label: string; accent: string })
   const texture = useMemo(() => makeLabelTexture(label, accent), [label, accent]);
   useEffect(() => () => texture?.dispose(), [texture]);
   return (
-    <group position={[0, 2.04, 0]}>
+    <group position={[0, 2.08, 0]}>
       <mesh castShadow>
-        <boxGeometry args={[2.1, 0.42, 0.1]} />
+        <boxGeometry args={[2.5, 0.5, 0.1]} />
         <meshStandardMaterial color={M.charcoal} {...FLAT} />
       </mesh>
       {texture !== null &&
         ([0.056, -0.056] as const).map((z) => (
           <mesh key={z} position={[0, 0, z]} rotation={[0, z > 0 ? 0 : Math.PI, 0]}>
-            <planeGeometry args={[2.02, 0.36]} />
+            <planeGeometry args={[2.42, 0.484]} />
             <meshBasicMaterial map={texture} toneMapped={false} />
           </mesh>
         ))}
