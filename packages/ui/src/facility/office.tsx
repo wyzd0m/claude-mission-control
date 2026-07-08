@@ -2,8 +2,9 @@ import type { Department } from "@mission-control/domain";
 import type * as THREE from "three";
 import { M } from "./materials.js";
 import { ROOM_POSITIONS, ROOM_ACCENTS, STATE_COLORS } from "./layout.js";
-import type { RoomSceneState } from "./scene-state.js";
+import { DEPARTMENT_LABELS, type RoomSceneState } from "./scene-state.js";
 import type { LiveActivity } from "./animation.js";
+import { DoorPlaque, StandingSign } from "./signage.js";
 import {
   Bench,
   Bookshelf,
@@ -180,11 +181,8 @@ function DoorSign({
           {...FLAT}
         />
       </mesh>
-      {/* Department sign chip */}
-      <mesh position={[0, 1.95, 0]}>
-        <boxGeometry args={[0.55, 0.26, 0.08]} />
-        <meshStandardMaterial color={accent} emissive={accent} emissiveIntensity={0.35} {...FLAT} />
-      </mesh>
+      {/* Department nameplate */}
+      <DoorPlaque label={DEPARTMENT_LABELS[department]} accent={accent} />
       {emphasized && (
         <pointLight position={[0, 1.6, 0.6]} color={state} intensity={4} distance={5} />
       )}
@@ -429,6 +427,13 @@ export function CommandHub({
         <Monitor x={0.35} glow={emphasized ? STATE_COLORS.working : M.screenWarm} />
       </Desk>
       <Chair position={[1.0, 0, -0.9]} rotationY={Math.PI / 2} />
+      {/* Hub nameplate — no door lintel to hang it from, so it stands on a pole */}
+      <StandingSign
+        label={DEPARTMENT_LABELS.command_core}
+        accent={ROOM_ACCENTS.command_core}
+        position={[1.7, 0, 1.5]}
+        rotationY={Math.PI / 4}
+      />
       {/* Robot charging points */}
       <ChargingPad position={[-1.9, 0, 0.9]} />
       <ChargingPad position={[-1.1, 0, 1.7]} />

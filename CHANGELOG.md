@@ -8,6 +8,12 @@ Version 1.0.0 is the first one-click release described in `docs/IMPLEMENTATION_R
 
 ### Added
 
+- Real text signage in the facility (D-026): every department door carries a readable nameplate —
+  the label is drawn to a small offscreen canvas (system font, department accent keyline, no font
+  assets or network) and mounted on a low-poly plaque, legible from both sides of the door; the
+  Command Hub gets a freestanding sign. Replaces the unlabeled accent chips. 3 new tests
+  (154 total).
+
 - Standalone monitor (D-025): `npm run monitor` opens an always-on, read-only Mission Control
   window in your browser, outside Claude Desktop. It reads the shared local database directly
   (127.0.0.1 only, independent of conversation lifecycle) and live-updates as Claude works —

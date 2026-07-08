@@ -137,6 +137,27 @@ Resolves the library question left open by D-014. The storage adapter uses `node
 - Verified by the Phase 2 test suite: migrations, transactions, foreign keys, `VACUUM INTO`
   backups, and WAL journaling all work on Node 24.
 
+## D-026 — Department signage as canvas-sprite plaques
+
+**Status:** Accepted (post-v1, version 0.2.0)
+
+Readable department names in the facility (polish goal "real 3D text signage"). Options
+considered: SDF text (troika/drei `Text`) — rejected because it loads font files at runtime,
+breaking the no-network, single-file-bundle constraints; extruded `TextGeometry` — rejected
+because it requires shipping a typeface JSON asset and fights the low-poly silhouette.
+
+Decision: each door gets a plaque whose face is drawn once to a small offscreen 2D canvas
+(320×64, system font, department accent keyline) and mounted as a texture on a low-poly plaque
+box (`packages/ui/src/facility/signage.tsx`). Properties:
+
+- No font assets, no network fetch, nothing new in the bundle; "avoid large textures"
+  (`docs/VISUAL_DESIGN.md`) holds — eight tiny canvases.
+- The label renders on both plaque faces because the fixed isometric camera sees the corridor
+  side of west-facing doors and the room side of east-facing ones.
+- The Command Hub has no door lintel, so its nameplate stands on a pole angled toward the camera.
+- Long names shrink to fit the face; the drawing routine is pure over a passed-in 2D context and
+  unit-tested with a stub (jsdom has no real canvas).
+
 ## D-025 — Standalone read-only monitor
 
 **Status:** Accepted (post-v1, version 0.2.0)

@@ -89,7 +89,7 @@ flowchart TD
   and animates a pure, unit-tested scene state; ambient motion is never presented as work.
 
 Key architectural decisions are recorded in [`docs/DECISION_LOG.md`](docs/DECISION_LOG.md)
-(D-001 through D-025). The eight end-to-end workflows are documented in
+(D-001 through D-026). The eight end-to-end workflows are documented in
 [`docs/WORKFLOWS.md`](docs/WORKFLOWS.md).
 
 ## Honesty model
@@ -108,7 +108,6 @@ The facility is an interface for verified events, not an AI mind reader
 ## Polish goals (planned, tracked in Mission Control itself)
 
 - Per-department robot work animations (unique gestures and props per room).
-- Real 3D text signage for departments.
 - Multiple robot instances for concurrent operations.
 - In-dashboard approve/reject buttons for Security Gate previews.
 - Push-based live updates below the current 2.5 s poll.
