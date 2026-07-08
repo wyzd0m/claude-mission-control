@@ -124,7 +124,14 @@ export function Facility({
       shadows
       orthographic
       camera={{ position: [16, 15, 16], zoom: 11.5, near: 0.1, far: 200 }}
-      onCreated={({ camera }) => camera.lookAt(0, 0, 0)}
+      onCreated={({ camera, scene }) => {
+        camera.lookAt(0, 0, 0);
+        // Dev-only (matches the demo bridge's purpose): let plain-browser
+        // layout checks inspect the scene graph. Never active in a host.
+        if (new URLSearchParams(window.location.search).has("demo")) {
+          (window as unknown as Record<string, unknown>).__cmcDemoScene = scene;
+        }
+      }}
       frameloop={reducedMotion ? "demand" : "always"}
       style={{ width: "100%", height: "100%" }}
     >

@@ -17,8 +17,10 @@ import type { Point } from "./layout.js";
 // The office's small service robot (visual redesign, Stage 3): a rounded
 // low-poly body with a readable face, two arms, and a wheel base. The
 // animated variant walks the waypoint routes from the pure animator, leans
-// into motion, bobs its arms while working, and carries a department-colored
-// output home after a success.
+// into motion, performs a department-specific work gesture with a held prop
+// (D-027), and carries a department-colored output home after a success.
+
+import { DEPARTMENT_GESTURES, GESTURE_REST, gestureFrame } from "./gestures.js";
 
 const FLAT = { flatShading: true } as const;
 
@@ -34,13 +36,119 @@ const STATUS_LIGHT: Record<RobotPlacement["phase"], string> = {
   gate: "#ffc66b",
 };
 
+/** Hand prop for a department's work gesture: small procedural primitives. */
+function GestureProp({ department }: { department: Department }) {
+  const accent = ROOM_ACCENTS[department];
+  switch (DEPARTMENT_GESTURES[department]) {
+    case "type":
+      return null;
+    case "place": // task card
+      return (
+        <group>
+          <mesh castShadow>
+            <boxGeometry args={[0.22, 0.02, 0.16]} />
+            <meshStandardMaterial color={M.paper} {...FLAT} />
+          </mesh>
+          <mesh position={[-0.06, 0.015, 0]}>
+            <boxGeometry args={[0.07, 0.012, 0.16]} />
+            <meshStandardMaterial color={accent} {...FLAT} />
+          </mesh>
+        </group>
+      );
+    case "read": // reference book
+      return (
+        <group rotation={[0.4, 0, 0]}>
+          <mesh castShadow>
+            <boxGeometry args={[0.24, 0.05, 0.18]} />
+            <meshStandardMaterial color={accent} {...FLAT} />
+          </mesh>
+          <mesh position={[0, 0.032, 0]}>
+            <boxGeometry args={[0.21, 0.02, 0.15]} />
+            <meshStandardMaterial color={M.paper} {...FLAT} />
+          </mesh>
+        </group>
+      );
+    case "tinker": // wrench
+      return (
+        <group rotation={[0, 0, Math.PI / 2]}>
+          <mesh castShadow>
+            <cylinderGeometry args={[0.028, 0.028, 0.26, 6]} />
+            <meshStandardMaterial color={M.metal} {...FLAT} />
+          </mesh>
+          <mesh position={[0, 0.15, 0]}>
+            <boxGeometry args={[0.09, 0.08, 0.045]} />
+            <meshStandardMaterial color={M.metal} {...FLAT} />
+          </mesh>
+        </group>
+      );
+    case "scan": // diagnostic probe with a glowing tip
+      return (
+        <group rotation={[Math.PI / 2, 0, 0]}>
+          <mesh castShadow>
+            <cylinderGeometry args={[0.03, 0.03, 0.24, 6]} />
+            <meshStandardMaterial color={M.metal} {...FLAT} />
+          </mesh>
+          <mesh position={[0, 0.14, 0]}>
+            <sphereGeometry args={[0.045, 8, 6]} />
+            <meshStandardMaterial color={accent} emissive={accent} emissiveIntensity={0.9} />
+          </mesh>
+        </group>
+      );
+    case "file": // memory cartridge
+      return (
+        <group>
+          <mesh castShadow>
+            <boxGeometry args={[0.2, 0.12, 0.07]} />
+            <meshStandardMaterial color={accent} {...FLAT} />
+          </mesh>
+          <mesh position={[0, 0, 0.04]}>
+            <boxGeometry args={[0.12, 0.07, 0.01]} />
+            <meshStandardMaterial color={M.robotDark} {...FLAT} />
+          </mesh>
+        </group>
+      );
+    case "stamp": // approval stamp
+      return (
+        <group>
+          <mesh position={[0, -0.03, 0]} castShadow>
+            <cylinderGeometry args={[0.07, 0.075, 0.05, 8]} />
+            <meshStandardMaterial color={M.robotDark} {...FLAT} />
+          </mesh>
+          <mesh position={[0, 0.05, 0]}>
+            <cylinderGeometry args={[0.035, 0.045, 0.11, 8]} />
+            <meshStandardMaterial color={M.wood} {...FLAT} />
+          </mesh>
+        </group>
+      );
+    case "pack": // outgoing package
+      return (
+        <group>
+          <mesh castShadow>
+            <boxGeometry args={[0.28, 0.22, 0.28]} />
+            <meshStandardMaterial color={M.wood} {...FLAT} />
+          </mesh>
+          <mesh position={[0, 0, 0]}>
+            <boxGeometry args={[0.06, 0.225, 0.285]} />
+            <meshStandardMaterial color={M.paper} {...FLAT} />
+          </mesh>
+        </group>
+      );
+  }
+}
+
+export const PROP_REST_POSITION: [number, number, number] = [0, 0.62, 0.38];
+
 export function RobotBody({
   statusColor = STATUS_LIGHT.idle,
   armsRef,
+  propRef,
+  gestureAt = null,
   carrying = null,
 }: {
   statusColor?: string;
   armsRef?: React.Ref<THREE.Group>;
+  propRef?: React.Ref<THREE.Group>;
+  gestureAt?: Department | null;
   carrying?: Department | null;
 }) {
   return (
@@ -108,6 +216,12 @@ export function RobotBody({
           </mesh>
         )}
       </group>
+      {/* Held work prop (D-027): animated by the gesture channels. */}
+      {gestureAt !== null && (
+        <group ref={propRef ?? null} position={PROP_REST_POSITION}>
+          <GestureProp department={gestureAt} />
+        </group>
+      )}
       {/* Antenna status light */}
       <mesh position={[0, 1.28, 0]}>
         <cylinderGeometry args={[0.02, 0.02, 0.12, 5]} />
@@ -147,13 +261,15 @@ export function AnimatedRobot({
   const animRef = useRef(createAnimator());
   const groupRef = useRef<THREE.Group>(null);
   const armsRef = useRef<THREE.Group>(null);
+  const propRef = useRef<THREE.Group>(null);
   const headingRef = useRef(0);
   const lastKeyRef = useRef("");
   const lastRouteKeyRef = useRef("");
-  const [visual, setVisual] = useState<{ statusColor: string; carrying: Department | null }>({
-    statusColor: STATUS_LIGHT.idle,
-    carrying: null,
-  });
+  const [visual, setVisual] = useState<{
+    statusColor: string;
+    carrying: Department | null;
+    gestureAt: Department | null;
+  }>({ statusColor: STATUS_LIGHT.idle, carrying: null, gestureAt: null });
 
   useEffect(() => {
     animRef.current = ingest(animRef.current, dashboard);
@@ -177,10 +293,25 @@ export function AnimatedRobot({
       // Lean slightly into movement.
       group.rotation.x = placement.speed * 0.07;
     }
+    // Department gesture: animated channels while working, held still while
+    // the outcome plays, absent everywhere else (the prop unmounts).
+    const gesture =
+      placement.phase === "working" && placement.activeDepartment !== null
+        ? gestureFrame(DEPARTMENT_GESTURES[placement.activeDepartment], frame.clock.elapsedTime)
+        : GESTURE_REST;
     const arms = armsRef.current;
     if (arms) {
-      arms.position.y =
-        placement.phase === "working" ? Math.sin(frame.clock.elapsedTime * 7) * 0.035 : 0;
+      arms.position.y = gesture.armBob;
+      arms.rotation.x = gesture.armSwing;
+    }
+    const prop = propRef.current;
+    if (prop) {
+      prop.position.set(
+        PROP_REST_POSITION[0] + gesture.propOffset[0],
+        PROP_REST_POSITION[1] + gesture.propOffset[1],
+        PROP_REST_POSITION[2] + gesture.propOffset[2],
+      );
+      prop.rotation.x = gesture.propTilt;
     }
 
     const key = `${placement.phase}:${placement.activeDepartment ?? ""}:${placement.outcome ?? ""}:${placement.carrying ?? ""}`;
@@ -192,6 +323,10 @@ export function AnimatedRobot({
             ? "#ff7a76"
             : STATUS_LIGHT[placement.phase],
         carrying: placement.carrying,
+        gestureAt:
+          placement.phase === "working" || placement.phase === "outcome"
+            ? placement.activeDepartment
+            : null,
       });
       onLiveActivity(
         placement.phase === "working" || placement.phase === "outcome" || placement.phase === "gate"
@@ -217,7 +352,13 @@ export function AnimatedRobot({
       position={[STATIONS.command_core[0], 0, STATIONS.command_core[1]]}
       scale={1.15}
     >
-      <RobotBody statusColor={visual.statusColor} carrying={visual.carrying} armsRef={armsRef} />
+      <RobotBody
+        statusColor={visual.statusColor}
+        carrying={visual.carrying}
+        gestureAt={visual.gestureAt}
+        armsRef={armsRef}
+        propRef={propRef}
+      />
     </group>
   );
 }

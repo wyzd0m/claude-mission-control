@@ -8,11 +8,26 @@ Version 1.0.0 is the first one-click release described in `docs/IMPLEMENTATION_R
 
 ### Added
 
+- Per-department robot work animations (D-027): the robot now performs a distinct gesture with a
+  small procedural prop in every room — placing a task card in the Planning Bay, leafing through
+  a book in the Research Archive, working a wrench in the Build Workshop, sweeping a glowing
+  probe in the Testing Lab, filing a cartridge in the Memory Vault, stamping at the Security
+  Gate, and hefting a package at the Delivery Dock; the Command Core keeps its typing bob.
+  Gestures are pure bounded motion profiles and play only during the truthful `working` phase.
+  5 new tests (161 total).
+
 - Real text signage in the facility (D-026): every department door carries a readable nameplate —
   the label is drawn to a small offscreen canvas (system font, department accent keyline, no font
   assets or network) and mounted on a low-poly plaque, legible from both sides of the door; the
   Command Hub gets a freestanding sign. Replaces the unlabeled accent chips. 3 new tests
   (154 total).
+
+- Standalone monitor (D-025): `npm run monitor` opens an always-on, read-only Mission Control
+  window in your browser, outside Claude Desktop. It reads the shared local database directly
+  (127.0.0.1 only, independent of conversation lifecycle) and live-updates as Claude works —
+  verified end-to-end against the installed extension. Mutating controls are disabled with a
+  "make changes in the conversation" hint; a future native always-on-top shell can embed the
+  same `startMonitorServer()`. 10 new tests (146 total).
 
 ### Fixed
 
@@ -21,13 +36,6 @@ Version 1.0.0 is the first one-click release described in `docs/IMPLEMENTATION_R
   launcher now detects the healthy running monitor, opens the browser to it, and exits cleanly.
   A port held by a different application still fails, with a hint to set `CMC_MONITOR_PORT`.
   2 new tests (156 total).
-
-- Standalone monitor (D-025): `npm run monitor` opens an always-on, read-only Mission Control
-  window in your browser, outside Claude Desktop. It reads the shared local database directly
-  (127.0.0.1 only, independent of conversation lifecycle) and live-updates as Claude works —
-  verified end-to-end against the installed extension. Mutating controls are disabled with a
-  "make changes in the conversation" hint; a future native always-on-top shell can embed the
-  same `startMonitorServer()`. 10 new tests (146 total).
 
 ## [0.1.0] — 2026-07-07
 

@@ -137,6 +137,25 @@ Resolves the library question left open by D-014. The storage adapter uses `node
 - Verified by the Phase 2 test suite: migrations, transactions, foreign keys, `VACUUM INTO`
   backups, and WAL journaling all work on Node 24.
 
+## D-027 — Per-department work gestures as pure motion profiles
+
+**Status:** Accepted (post-v1, version 0.2.0)
+
+Each department gets a distinct work gesture with a small procedural hand prop (polish goal
+"per-department robot work animations"): place a task card, leaf through a book, work a wrench,
+sweep a probe, file a cartridge, stamp a document, heft a package; the Command Core keeps the
+typing bob. Implementation:
+
+- Gestures are pure, deterministic motion profiles (`packages/ui/src/facility/gestures.ts`):
+  `gestureFrame(kind, time)` returns bounded channel values that the robot renderer applies to
+  its arms and held prop. Tests enforce the bounds, determinism, that every gesture actually
+  moves, and that all eight departments have distinct gestures.
+- The animator state machine is untouched: a gesture plays only while the existing `working`
+  phase presents a persisted event at that department, and the prop is held still while the
+  `outcome` phase plays (D-021/D-023 truthfulness unchanged — no gesture can imply unobserved
+  work).
+- Props are procedural primitives in the robot renderer (`robot.tsx`); no imported assets.
+
 ## D-026 — Department signage as canvas-sprite plaques
 
 **Status:** Accepted (post-v1, version 0.2.0)
