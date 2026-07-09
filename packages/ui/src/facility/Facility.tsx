@@ -37,6 +37,38 @@ export function webglAvailable(): boolean {
 }
 
 /**
+ * Adaptive render resolution (D-032): supersample up to 1.75x for crisp
+ * low-poly edges, but step the ratio down when the measured frame rate
+ * sags (integrated GPUs, big monitors) and back up when there is headroom.
+ * Resolution is the biggest lever on fill-rate-bound machines.
+ */
+function AdaptiveResolution({ min = 1, max = 1.75 }: { min?: number; max?: number }) {
+  const setDpr = useThree((state) => state.setDpr);
+  const dprRef = useRef(Math.min(max, 1.5));
+  const emaFps = useRef(60);
+  const cooldown = useRef(2); // let startup settle before judging
+  useEffect(() => {
+    setDpr(dprRef.current);
+  }, [setDpr]);
+  useFrame((_, dt) => {
+    if (dt <= 0 || dt > 0.25) return; // ignore tab-switch spikes
+    emaFps.current = emaFps.current * 0.95 + (1 / dt) * 0.05;
+    cooldown.current -= dt;
+    if (cooldown.current > 0) return;
+    if (emaFps.current < 45 && dprRef.current > min) {
+      dprRef.current = Math.max(min, dprRef.current - 0.25);
+      setDpr(dprRef.current);
+      cooldown.current = 2;
+    } else if (emaFps.current > 57 && dprRef.current < max) {
+      dprRef.current = Math.min(max, dprRef.current + 0.25);
+      setDpr(dprRef.current);
+      cooldown.current = 4;
+    }
+  });
+  return null;
+}
+
+/**
  * Fit the diorama to the canvas: orthographic zoom scales with the viewport
  * so the office is the highlight at every panel size, from the embedded
  * chat widget to a full monitor window.
@@ -122,10 +154,12 @@ export function Facility({
     <Canvas
       shadows
       orthographic
-      // Render at ≥1.5x the CSS size: on large 1x-DPR monitors the default
-      // buffer matches CSS pixels and the diorama looks soft; supersampling
-      // keeps the low-poly edges crisp. The scene is light enough for it.
-      dpr={[1.5, 2]}
+      // Start supersampled at 1.5x (crisp on 1x-DPR monitors);
+      // AdaptiveResolution then tunes the ratio to the machine. Ask for the
+      // discrete GPU on dual-GPU systems — browsers default some canvases
+      // to the power-saving integrated one.
+      dpr={1.5}
+      gl={{ antialias: true, powerPreference: "high-performance" }}
       camera={{ position: [16, 15, 16], zoom: 11.5, near: 0.1, far: 200 }}
       onCreated={({ camera, scene }) => {
         camera.lookAt(0, 0, 0);
@@ -140,6 +174,7 @@ export function Facility({
       style={{ width: "100%", height: "100%" }}
     >
       <color attach="background" args={["#0d1218"]} />
+      {!reducedMotion && <AdaptiveResolution />}
       <ResponsiveZoom />
       <ambientLight color={LIGHTING.ambientColor} intensity={LIGHTING.ambientIntensity} />
       <hemisphereLight

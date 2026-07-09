@@ -64,6 +64,18 @@ Version 1.0.0 is the first one-click release described in `docs/IMPLEMENTATION_R
 
 ### Fixed
 
+- The standalone monitor now finds Claude Desktop's data on packaged (MSIX) installs (D-032):
+  Windows silently redirects the extension's `%APPDATA%` writes into the app package's
+  LocalCache, so the monitor — an unpackaged process — was reading a different, empty database
+  and showing "No projects yet" despite real project data. When the default database has no
+  projects, the monitor now locates and reads the populated virtualized database (logged at
+  startup; `/health` reports the path; explicit `CMC_DATA_DIR` still wins). 5 new tests
+  (177 total).
+
+- Facility frame rate on large monitors (D-032): the 3D canvas requests the high-performance
+  GPU and adapts its render resolution (1×–1.75×, starting at 1.5×) to the measured frame rate
+  instead of always supersampling.
+
 - Launching the monitor while one is already running (for example double-clicking the desktop
   shortcut twice, or while a dev session holds the port) no longer crashes with EADDRINUSE: the
   launcher now detects the healthy running monitor, opens the browser to it, and exits cleanly.

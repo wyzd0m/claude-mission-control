@@ -8,6 +8,7 @@ import {
   startMonitorServer,
   type MonitorServer,
 } from "./monitor-server.js";
+import { resolveMonitorDatabase } from "./locate-data.js";
 
 // CLI entry for the standalone monitor: `npm run monitor`.
 // Options via environment:
@@ -46,9 +47,18 @@ async function main() {
   const shouldOpen =
     process.env.CMC_MONITOR_NO_OPEN === undefined && !process.argv.includes("--no-open");
 
+  // Claude Desktop is an MSIX-packaged app on Windows: the extension's data
+  // lands in the package's virtualized LocalCache, not the literal
+  // %APPDATA% path this unpackaged process resolves. Read the populated one.
+  const { dbPath, virtualized } = resolveMonitorDatabase(databaseFilePath());
+  if (virtualized) {
+    console.error(`[monitor] The default data directory has no projects.`);
+    console.error(`[monitor] Reading Claude Desktop's virtualized data instead: ${dbPath}`);
+  }
+
   let monitor: MonitorServer;
   try {
-    monitor = await startMonitorServer(port !== undefined ? { port } : {});
+    monitor = await startMonitorServer({ ...(port !== undefined ? { port } : {}), dbPath });
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "EADDRINUSE") {
       const requestedPort = port ?? DEFAULT_MONITOR_PORT;
@@ -68,7 +78,7 @@ async function main() {
     throw error;
   }
   console.error(`[monitor] Mission Control monitor at ${monitor.url}`);
-  console.error(`[monitor] reading ${databaseFilePath()} (read-only view; Ctrl+C to stop)`);
+  console.error(`[monitor] reading ${dbPath} (read-only view; Ctrl+C to stop)`);
   if (shouldOpen) {
     openInBrowser(monitor.url);
   }

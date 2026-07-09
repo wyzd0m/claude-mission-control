@@ -137,6 +137,31 @@ Resolves the library question left open by D-014. The storage adapter uses `node
 - Verified by the Phase 2 test suite: migrations, transactions, foreign keys, `VACUUM INTO`
   backups, and WAL journaling all work on Node 24.
 
+## D-032 — MSIX virtualization awareness and adaptive render resolution
+
+**Status:** Accepted (post-v1, version 0.2.0)
+
+Root cause of the "monitor shows No projects yet" reports — and a correction to D-031's
+sandbox theory: Claude Desktop is an MSIX-packaged Windows app, so the extension's writes to
+`%APPDATA%\ClaudeMissionControl` are transparently redirected into
+`%LOCALAPPDATA%\Packages\Claude_*\LocalCache\Roaming\ClaudeMissionControl`. Unpackaged
+processes (the monitor launched from a shortcut or terminal) resolving the same `%APPDATA%`
+path read a different, empty database. The extension and the monitor had never shared data on
+a packaged install.
+
+- The monitor now resolves its database with `resolveMonitorDatabase()`
+  (`packages/server/src/monitor/locate-data.ts`): an explicit `CMC_DATA_DIR` always wins;
+  otherwise the default path is used unless it holds no projects and a populated
+  MSIX-virtualized database exists, in which case the virtualized one is read (logged at
+  startup, visible in `/health databasePath`). Read-only semantics are unchanged.
+- The user's project data was first exported through the live extension connection as a
+  portable JSON backup before any change.
+- Facility rendering became adaptive (user report: 20–30 fps on a 2560×1440 monitor):
+  `AdaptiveResolution` starts at 1.5× supersampling and steps the pixel ratio between 1× and
+  1.75× based on a measured-FPS moving average; the canvas also requests the
+  `high-performance` GPU, since browsers put some canvases on the power-saving integrated GPU
+  of dual-GPU machines.
+
 ## D-031 — Nametags, busy-work variety, in-dashboard test toggle, crisp rendering
 
 **Status:** Accepted (post-v1, version 0.2.0)
