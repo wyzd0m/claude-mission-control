@@ -8,6 +8,12 @@ Version 1.0.0 is the first one-click release described in `docs/IMPLEMENTATION_R
 
 ### Added
 
+- Robot identities and grounded locomotion (D-029): the fleet is now OTTO (lead courier, blue),
+  PIP (small teal scout with a dome head and visor eye), and HEX (large amber hauler with a
+  boxy torso and square eyes) — each with a chest name badge. Movement no longer reads as
+  sliding: the ball wheel rolls with travel speed and a per-robot gait clock drives an
+  alternating arm swing, a speed-scaled bob, and a slight body sway. 3 new tests (165 total).
+
 - Robot fleet (D-028): three service robots instead of one — robot 0 rests at the Command Core
   station and two more park on the hub's charging pads. Idle robots pick up jobs from a shared
   queue, so concurrent Mission Control operations now animate concurrently; overflow jobs still

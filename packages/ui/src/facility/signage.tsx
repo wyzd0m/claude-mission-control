@@ -45,7 +45,8 @@ export function drawPlaqueFace(
   context.fillText(text, CANVAS_WIDTH / 2, (CANVAS_HEIGHT - 7) / 2, maxWidth);
 }
 
-function makeLabelTexture(label: string, accent: string): THREE.CanvasTexture | null {
+/** Plaque-style label texture; also used for robot name badges (D-029). */
+export function makeLabelTexture(label: string, accent: string): THREE.CanvasTexture | null {
   const canvas = document.createElement("canvas");
   canvas.width = CANVAS_WIDTH;
   canvas.height = CANVAS_HEIGHT;

@@ -229,17 +229,25 @@ Robot actions:
 
 ## 7. Robot design
 
-Version 1 begins with one reusable robot:
+Version 1 began with one reusable robot; the post-v1 fleet (D-028/D-029) has three named
+robots, each a variation of the same low-poly family:
 
-- Small wheeled or two-legged body
+- **OTTO** — lead courier: cylinder body, box head, two round eyes, blue accent.
+- **PIP** — small scout: slim body, dome head, single visor eye, teal accent.
+- **HEX** — heavy hauler: boxy torso, wide flat head, square eyes, amber accent.
+
+Shared traits, unchanged from version 1:
+
+- Small wheeled body (a ball wheel that visibly rolls while travelling)
 - Large readable head or display face
-- Two simple arms
-- Backpack or cargo slot
+- Two simple arms (alternating gait swing while travelling; work gestures at stations)
+- Chest name badge and accent light
 - Clear status light
 - Low polygon count
 - Strong silhouette at small scale
 
-Specialized robot models are deferred. Version 1 uses different carried objects and status accents.
+Different carried objects and status accents continue to signal what is being done; the
+identity only signals who is doing it.
 
 ## 8. Visual state machine
 

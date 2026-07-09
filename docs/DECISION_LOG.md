@@ -137,6 +137,25 @@ Resolves the library question left open by D-014. The storage adapter uses `node
 - Verified by the Phase 2 test suite: migrations, transactions, foreign keys, `VACUUM INTO`
   backups, and WAL journaling all work on Node 24.
 
+## D-029 — Robot identities and grounded locomotion
+
+**Status:** Accepted (post-v1, version 0.2.0)
+
+The D-028 fleet gets personalities and a gait, per user direction ("more personalization…
+they look like they're sliding around"):
+
+- Identities are pure data (`packages/ui/src/facility/robot-identities.ts`), index-aligned with
+  the fleet: **OTTO** (lead courier, blue, the original silhouette), **PIP** (small teal scout,
+  dome head, single visor eye), **HEX** (large amber hauler, boxy torso, square eyes). Each
+  wears a chest name badge drawn with the D-026 plaque texture helper. Tests pin roster size,
+  uniqueness, and sane scales.
+- Locomotion is grounded: one gait clock per robot drives a rolling ball-wheel, an alternating
+  arm swing, a speed-scaled bob, and a slight body sway together, replacing the uniform glide.
+  Arms swing only while travelling and yield to D-027 work gestures at stations.
+- Renderer-only change: the animator's placements are untouched, so truthfulness semantics
+  (D-021/D-023/D-028) are unaffected. VISUAL_DESIGN §7's "specialized robot models are
+  deferred" is hereby un-deferred; the section is updated.
+
 ## D-028 — Robot fleet for concurrent operations
 
 **Status:** Accepted (post-v1, version 0.2.0)
