@@ -5,6 +5,7 @@ import { ProjectHeader } from "./components/ProjectHeader.js";
 import { ActivityPanel } from "./components/ActivityPanel.js";
 import { WorkPanel } from "./components/WorkPanel.js";
 import { FacilityPanel } from "./facility/FacilityPanel.js";
+import { createTestBridge } from "./test-bridge.js";
 
 // The conventional dashboard (Phase 5). Renders the read-only DashboardState
 // projection and performs actions exclusively through Mission Control tools.
@@ -70,6 +71,33 @@ export function DashboardApp({
     }, 2500);
     return () => window.clearInterval(id);
   }, [refresh]);
+
+  // Animation test mode (D-031): while enabled, the facility and activity
+  // feed render a synthetic event treadmill from the local test bridge (the
+  // same one behind `?test`), clearly bannered. Real state keeps polling in
+  // the background so unticking snaps straight back.
+  const [animationTest, setAnimationTest] = useState(false);
+  const [testState, setTestState] = useState<DashboardState | null>(null);
+  useEffect(() => {
+    if (!animationTest) {
+      setTestState(null);
+      return;
+    }
+    const testBridge = createTestBridge();
+    let alive = true;
+    const pull = () =>
+      void testBridge.callTool("get_mission_control_state").then((response) => {
+        if (alive && response.ok && response.state !== undefined) {
+          setTestState(response.state as DashboardState);
+        }
+      });
+    pull();
+    const id = window.setInterval(pull, 2500);
+    return () => {
+      alive = false;
+      window.clearInterval(id);
+    };
+  }, [animationTest]);
 
   /** Run a mutating tool, then refresh the read model. */
   const act = useCallback(
@@ -140,8 +168,15 @@ export function DashboardApp({
 
       <div className="main">
         <div className="column">
-          <FacilityPanel state={state} />
-          <ActivityPanel current={state.currentActivity} timeline={state.timeline} />
+          <FacilityPanel
+            state={animationTest && testState !== null ? testState : state}
+            animationTest={animationTest}
+            onAnimationTest={setAnimationTest}
+          />
+          <ActivityPanel
+            current={(animationTest && testState !== null ? testState : state).currentActivity}
+            timeline={(animationTest && testState !== null ? testState : state).timeline}
+          />
         </div>
         <div className="column">
           <WorkPanel

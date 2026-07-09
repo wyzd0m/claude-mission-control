@@ -9,7 +9,16 @@ import { loadPrefs, savePrefs, type DisplayPrefs } from "../prefs.js";
 // scene is never the only source of information: the exact activity panel
 // and the 2D fallback carry everything as text.
 
-export function FacilityPanel({ state }: { state: DashboardState }) {
+export function FacilityPanel({
+  state,
+  animationTest = false,
+  onAnimationTest,
+}: {
+  state: DashboardState;
+  /** Test mode active: `state` is already the synthetic feed (D-031). */
+  animationTest?: boolean;
+  onAnimationTest?: (enabled: boolean) => void;
+}) {
   const [prefs, setPrefs] = useState<DisplayPrefs>(() => loadPrefs());
   const [hasWebgl] = useState(() => webglAvailable());
   const scene = useMemo(() => deriveSceneState(state), [state]);
@@ -47,7 +56,25 @@ export function FacilityPanel({ state }: { state: DashboardState }) {
           />
           Disable 3D
         </label>
+        {onAnimationTest !== undefined && (
+          <label className="row muted">
+            <input
+              type="checkbox"
+              checked={animationTest}
+              onChange={(e) => onAnimationTest(e.target.checked)}
+              disabled={!show3d}
+            />
+            Test animations
+          </label>
+        )}
       </div>
+      {animationTest && (
+        <div className="panel monitor-banner" role="note" style={{ marginBottom: 8 }}>
+          <strong>Animation test mode</strong> — the facility and activity feed below show synthetic
+          sample events to exercise the robots, NOT what is actually happening. Untick “Test
+          animations” to return to real activity.
+        </div>
+      )}
       {show3d ? (
         <div className="facility-viewport" aria-label="3D facility scene">
           <Facility scene={scene} dashboard={state} reducedMotion={prefs.reducedMotion} />

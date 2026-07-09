@@ -29,10 +29,17 @@ async function main() {
   // Fail fast with the recovery hint if the dashboard is not built.
   resolveDashboardHtmlPath();
 
-  const portRaw = process.env.CMC_MONITOR_PORT;
+  // `--port <n>` (dev launch configs use 8643 so they never squat the real
+  // monitor's canonical 8642) takes precedence over CMC_MONITOR_PORT.
+  const portFlagIndex = process.argv.indexOf("--port");
+  const portRaw =
+    portFlagIndex >= 0 ? process.argv[portFlagIndex + 1] : process.env.CMC_MONITOR_PORT;
   const port = portRaw !== undefined && portRaw.trim() !== "" ? Number(portRaw) : undefined;
-  if (port !== undefined && (!Number.isInteger(port) || port < 0 || port > 65535)) {
-    console.error(`[monitor] invalid CMC_MONITOR_PORT: ${portRaw}`);
+  if (
+    (portFlagIndex >= 0 || port !== undefined) &&
+    (port === undefined || !Number.isInteger(port) || port < 0 || port > 65535)
+  ) {
+    console.error(`[monitor] invalid port: ${portRaw}`);
     process.exit(1);
   }
 

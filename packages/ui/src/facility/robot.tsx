@@ -21,7 +21,14 @@ import type { Point } from "./layout.js";
 // into motion, performs a department-specific work gesture with a held prop
 // (D-027), and carries a department-colored output home after a success.
 
-import { DEPARTMENT_GESTURES, GESTURE_REST, gestureFrame } from "./gestures.js";
+import {
+  busyFrame,
+  busyKindAt,
+  DEPARTMENT_GESTURES,
+  GESTURE_REST,
+  gestureFrame,
+  type BusyKind,
+} from "./gestures.js";
 import { ROBOT_IDENTITIES, type RobotIdentity } from "./robot-identities.js";
 import { makeLabelTexture } from "./signage.js";
 
@@ -148,6 +155,54 @@ function GestureProp({ department }: { department: Department }) {
 
 export const PROP_REST_POSITION: [number, number, number] = [0, 0.62, 0.38];
 
+/** Hand prop for the busy-work chores played during long work (D-031). */
+function BusyProp({ kind, accent }: { kind: BusyKind; accent: string }) {
+  if (kind === "paperwork") {
+    // Clipboard with a sheet and a metal clip.
+    return (
+      <group>
+        <mesh castShadow>
+          <boxGeometry args={[0.2, 0.015, 0.28]} />
+          <meshStandardMaterial color={M.wood} {...FLAT} />
+        </mesh>
+        <mesh position={[0, 0.012, 0]}>
+          <boxGeometry args={[0.17, 0.008, 0.24]} />
+          <meshStandardMaterial color={M.paper} {...FLAT} />
+        </mesh>
+        <mesh position={[0, 0.02, -0.11]}>
+          <boxGeometry args={[0.07, 0.025, 0.035]} />
+          <meshStandardMaterial color={M.metal} {...FLAT} />
+        </mesh>
+      </group>
+    );
+  }
+  // organize — a document folder with a tab, in the room's accent.
+  return (
+    <group>
+      <mesh castShadow>
+        <boxGeometry args={[0.24, 0.035, 0.18]} />
+        <meshStandardMaterial color={accent} {...FLAT} />
+      </mesh>
+      <mesh position={[0.07, 0.022, -0.06]}>
+        <boxGeometry args={[0.08, 0.012, 0.05]} />
+        <meshStandardMaterial color={M.paper} {...FLAT} />
+      </mesh>
+    </group>
+  );
+}
+
+/** Floating name tag above the robot's head, always facing the camera. */
+function NameTag({ name, accent, y }: { name: string; accent: string; y: number }) {
+  const texture = useMemo(() => makeLabelTexture(name, accent), [name, accent]);
+  useEffect(() => () => texture?.dispose(), [texture]);
+  if (texture === null) return null;
+  return (
+    <sprite position={[0, y, 0]} scale={[0.84, 0.175, 1]}>
+      <spriteMaterial map={texture} depthWrite={false} />
+    </sprite>
+  );
+}
+
 /** Chest name badge: the robot's name in the shared plaque style (D-029). */
 function NameBadge({ name, accent, y, z }: { name: string; accent: string; y: number; z: number }) {
   const texture = useMemo(() => makeLabelTexture(name, accent), [name, accent]);
@@ -256,6 +311,7 @@ const VARIANT_DIMS: Record<
     badgeY: number;
     badgeZ: number;
     armX: number;
+    tagY: number;
   }
 > = {
   courier: {
@@ -266,6 +322,7 @@ const VARIANT_DIMS: Record<
     badgeY: 0.34,
     badgeZ: 0.345,
     armX: 0.38,
+    tagY: 1.62,
   },
   scout: {
     antennaY: 1.22,
@@ -275,6 +332,7 @@ const VARIANT_DIMS: Record<
     badgeY: 0.32,
     badgeZ: 0.3,
     armX: 0.32,
+    tagY: 1.56,
   },
   hauler: {
     antennaY: 1.18,
@@ -284,6 +342,7 @@ const VARIANT_DIMS: Record<
     badgeY: 0.34,
     badgeZ: 0.245,
     armX: 0.4,
+    tagY: 1.52,
   },
 };
 
@@ -296,6 +355,7 @@ export function RobotBody({
   wheelRef,
   propRef,
   gestureAt = null,
+  busy = null,
   carrying = null,
 }: {
   identity?: RobotIdentity;
@@ -306,6 +366,7 @@ export function RobotBody({
   wheelRef?: React.Ref<THREE.Mesh>;
   propRef?: React.Ref<THREE.Group>;
   gestureAt?: Department | null;
+  busy?: BusyKind | null;
   carrying?: Department | null;
 }) {
   const dims = VARIANT_DIMS[identity.variant];
@@ -353,10 +414,14 @@ export function RobotBody({
           </mesh>
         )}
       </group>
-      {/* Held work prop (D-027): animated by the gesture channels. */}
+      {/* Held work prop (D-027/D-031): animated by the gesture channels. */}
       {gestureAt !== null && (
         <group ref={propRef ?? null} position={PROP_REST_POSITION}>
-          <GestureProp department={gestureAt} />
+          {busy !== null ? (
+            <BusyProp kind={busy} accent={ROOM_ACCENTS[gestureAt]} />
+          ) : (
+            <GestureProp department={gestureAt} />
+          )}
         </group>
       )}
       {/* Antenna status light */}
@@ -368,6 +433,8 @@ export function RobotBody({
         <sphereGeometry args={[0.06, 8, 6]} />
         <meshStandardMaterial color={statusColor} emissive={statusColor} emissiveIntensity={1} />
       </mesh>
+      {/* Floating name tag (D-031) */}
+      <NameTag name={identity.name} accent={identity.accent} y={dims.tagY} />
     </>
   );
 }
@@ -394,12 +461,14 @@ interface RobotVisual {
   statusColor: string;
   carrying: Department | null;
   gestureAt: Department | null;
+  busy: BusyKind | null;
 }
 
 const IDLE_VISUAL: RobotVisual = {
   statusColor: STATUS_LIGHT.idle,
   carrying: null,
   gestureAt: null,
+  busy: null,
 };
 
 /**
@@ -425,6 +494,7 @@ export function AnimatedRobots({
   const propRefs = useRef<(THREE.Group | null)[]>([]);
   const headingRefs = useRef<number[]>(Array.from({ length: ROBOT_COUNT }, () => 0));
   const gaitPhaseRefs = useRef<number[]>(Array.from({ length: ROBOT_COUNT }, () => 0));
+  const workClockRefs = useRef<number[]>(Array.from({ length: ROBOT_COUNT }, () => 0));
   const lastKeyRef = useRef("");
   const lastRouteKeyRef = useRef("");
   const [visuals, setVisuals] = useState<RobotVisual[]>(
@@ -438,6 +508,7 @@ export function AnimatedRobots({
   useFrame((frame, dt) => {
     animRef.current = tick(animRef.current, Math.min(dt, 0.25));
     const placements = robotPlacements(animRef.current);
+    const busyNow: (BusyKind | null)[] = [];
 
     placements.forEach((placement, i) => {
       // Grounded locomotion (D-029/D-030): the gait phase advances with the
@@ -450,16 +521,33 @@ export function AnimatedRobots({
         gaitPhaseRefs.current[i]! + (placement.velocity * dt * GAIT_STEPS_PER_UNIT) / identityScale;
       gaitPhaseRefs.current[i] = gait;
       const fidgeting = placement.phase === "fidget";
+      // Department gesture: animated channels while working, held still while
+      // the outcome plays, absent everywhere else (the prop unmounts). Long
+      // stints at a station rotate in busy-work chores (D-031).
+      const working = placement.phase === "working" && placement.activeDepartment !== null;
+      const workClock = working ? workClockRefs.current[i]! + dt : 0;
+      workClockRefs.current[i] = workClock;
+      const busy = working ? busyKindAt(workClock) : null;
+      busyNow[i] = busy;
+      const gesture = working
+        ? busy !== null
+          ? busyFrame(busy, frame.clock.elapsedTime + i * 0.9)
+          : gestureFrame(
+              DEPARTMENT_GESTURES[placement.activeDepartment!],
+              frame.clock.elapsedTime + i * 0.9,
+            )
+        : GESTURE_REST;
       const group = groupRefs.current[i];
       if (group) {
         const [x, z] = placement.position;
         const bob = stride > 0.03 ? Math.abs(Math.sin(gait)) * 0.05 * stride : 0;
         group.position.set(x, bob, z);
         // Turn smoothly toward the current heading; a fidgeting robot slowly
-        // sweeps its gaze from side to side instead.
+        // sweeps its gaze from side to side, and busy-work chores may add
+        // their own yaw (turning to a shelf while organizing).
         const targetHeading = fidgeting
           ? placement.heading + Math.sin(frame.clock.elapsedTime * 0.9 + i * 1.7) * 0.6
-          : placement.heading;
+          : placement.heading + (gesture.yaw ?? 0);
         let delta = targetHeading - headingRefs.current[i]!;
         while (delta > Math.PI) delta -= Math.PI * 2;
         while (delta < -Math.PI) delta += Math.PI * 2;
@@ -474,15 +562,6 @@ export function AnimatedRobots({
       if (wheel) {
         wheel.rotation.x += (placement.velocity * dt) / (WHEEL_RADIUS * identityScale);
       }
-      // Department gesture: animated channels while working, held still while
-      // the outcome plays, absent everywhere else (the prop unmounts).
-      const working = placement.phase === "working" && placement.activeDepartment !== null;
-      const gesture = working
-        ? gestureFrame(
-            DEPARTMENT_GESTURES[placement.activeDepartment!],
-            frame.clock.elapsedTime + i * 0.9,
-          )
-        : GESTURE_REST;
       const arms = armsRefs.current[i];
       if (arms) {
         // Fidget: a gentle in-place arm stretch while looking around.
@@ -509,12 +588,15 @@ export function AnimatedRobots({
     });
 
     const key = placements
-      .map((p) => `${p.phase}:${p.activeDepartment ?? ""}:${p.outcome ?? ""}:${p.carrying ?? ""}`)
+      .map(
+        (p, i) =>
+          `${p.phase}:${p.activeDepartment ?? ""}:${p.outcome ?? ""}:${p.carrying ?? ""}:${busyNow[i] ?? ""}`,
+      )
       .join("|");
     if (key !== lastKeyRef.current) {
       lastKeyRef.current = key;
       setVisuals(
-        placements.map((placement) => ({
+        placements.map((placement, i) => ({
           statusColor:
             placement.phase === "outcome" && placement.outcome === "failed"
               ? "#ff7a76"
@@ -524,6 +606,7 @@ export function AnimatedRobots({
             placement.phase === "working" || placement.phase === "outcome"
               ? placement.activeDepartment
               : null,
+          busy: placement.phase === "working" ? (busyNow[i] ?? null) : null,
         })),
       );
       onLiveActivities(
@@ -560,6 +643,7 @@ export function AnimatedRobots({
             statusColor={visuals[i]!.statusColor}
             carrying={visuals[i]!.carrying}
             gestureAt={visuals[i]!.gestureAt}
+            busy={visuals[i]!.busy}
             armsRef={(el) => {
               armsRefs.current[i] = el;
             }}

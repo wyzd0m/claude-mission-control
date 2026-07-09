@@ -55,7 +55,8 @@ const JSON_HEADERS = {
 } as const;
 
 export function startMonitorServer(options: MonitorServerOptions = {}): Promise<MonitorServer> {
-  const { db } = openDatabase(options.dbPath ?? databaseFilePath());
+  const dbPath = options.dbPath ?? databaseFilePath();
+  const { db } = openDatabase(dbPath);
   const ctx = createServiceContext(db);
   const activity = createActivityEventService(ctx);
   const uiState = createUiStateService(ctx, activity, SERVER_VERSION);
@@ -79,7 +80,9 @@ export function startMonitorServer(options: MonitorServerOptions = {}): Promise<
       }
       if (req.method === "GET" && url.pathname === "/health") {
         res.writeHead(200, JSON_HEADERS);
-        res.end(JSON.stringify({ ok: true, serverVersion: SERVER_VERSION }));
+        // databasePath makes a wrong-data-directory monitor diagnosable at
+        // a glance (e.g. a sandboxed dev instance squatting the port).
+        res.end(JSON.stringify({ ok: true, serverVersion: SERVER_VERSION, databasePath: dbPath }));
         return;
       }
       res.writeHead(404, JSON_HEADERS);

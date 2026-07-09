@@ -122,6 +122,10 @@ export function Facility({
     <Canvas
       shadows
       orthographic
+      // Render at ≥1.5x the CSS size: on large 1x-DPR monitors the default
+      // buffer matches CSS pixels and the diorama looks soft; supersampling
+      // keeps the low-poly edges crisp. The scene is light enough for it.
+      dpr={[1.5, 2]}
       camera={{ position: [16, 15, 16], zoom: 11.5, near: 0.1, far: 200 }}
       onCreated={({ camera, scene }) => {
         camera.lookAt(0, 0, 0);

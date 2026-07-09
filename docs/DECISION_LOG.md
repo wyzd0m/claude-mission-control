@@ -137,6 +137,32 @@ Resolves the library question left open by D-014. The storage adapter uses `node
 - Verified by the Phase 2 test suite: migrations, transactions, foreign keys, `VACUUM INTO`
   backups, and WAL journaling all work on Node 24.
 
+## D-031 — Nametags, busy-work variety, in-dashboard test toggle, crisp rendering
+
+**Status:** Accepted (post-v1, version 0.2.0)
+
+Second user-review round on the fleet:
+
+- **Floating nametags.** Each robot carries a Minecraft-style name tag: a camera-facing sprite
+  above the head reusing the D-026 plaque texture (still no font assets). The chest badge stays
+  as the close-up identity.
+- **Busy-work variety.** A robot that stays at a station beyond a short lead-in rotates its
+  primary department gesture with generic office chores — filling out paperwork on a clipboard,
+  organizing folders (with a body-yaw turn to the shelf). Pure bounded motion profiles beside
+  the D-027 gestures; they play only inside the truthful `working` phase of a persisted event,
+  so long-running operations look tended rather than looping one motion.
+- **In-dashboard animation test toggle.** A "Test animations" checkbox next to Reduce motion /
+  Disable 3D feeds the facility and activity panels from the local `?test` bridge, under a
+  banner stating the feed is synthetic and NOT real activity; real state keeps polling in the
+  background and returns instantly when unticked. Truthfulness is preserved by explicit user
+  intent plus the persistent banner.
+- **Crisp rendering.** The canvas renders at ≥1.5× device pixels (`dpr={[1.5, 2]}`): on large
+  1×-DPR monitors the default buffer matched CSS pixels and the diorama looked soft.
+- **Dev monitors keep off the real port.** The repo launch config now starts monitors with
+  `--port 8643` (new CLI flag) so sandboxed dev instances can never squat 8642, where the
+  user's shortcut would "reuse" a monitor reading an empty sandboxed database. `/health` now
+  reports `databasePath` so a wrong-data monitor is diagnosable at a glance.
+
 ## D-030 — Ground-synced gait, ambient idle life, and animation test mode
 
 **Status:** Accepted (post-v1, version 0.2.0)

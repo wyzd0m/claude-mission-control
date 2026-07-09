@@ -37,6 +37,8 @@ export interface GestureFrame {
   propOffset: [number, number, number];
   /** Prop pitch in radians. */
   propTilt: number;
+  /** Extra body yaw in radians (turning to a shelf while organizing). */
+  yaw?: number;
 }
 
 /** Neutral frame: prop held still (used while the outcome plays). */
@@ -50,6 +52,55 @@ export const GESTURE_REST: GestureFrame = {
 /** Smooth 0→1→0 cycle at `hz`, for repeated place/push motions. */
 function cycle(t: number, hz: number): number {
   return (Math.sin(t * hz * Math.PI * 2) + 1) / 2;
+}
+
+/**
+ * Busy-work variations layered into LONG-RUNNING work (D-031): once a robot
+ * has been at a station a while, it alternates its primary gesture with
+ * generic office chores. Purely presentational variety inside the truthful
+ * `working` phase of a persisted event — never played while idle.
+ */
+export type BusyKind = "paperwork" | "organize";
+
+export const BUSY_SEQUENCE: readonly (BusyKind | null)[] = [null, "paperwork", "organize"];
+
+/** Seconds of primary gesture before busy-work variety begins. Shorter than
+ *  the standard working beat so every room visit shows gesture + a chore. */
+export const BUSY_LEAD_IN = 1.8;
+/** Seconds each busy-work segment lasts before rotating. */
+export const BUSY_SEGMENT = 1.6;
+
+/** Which busy-work (or null = primary gesture) plays after `workSeconds`. */
+export function busyKindAt(workSeconds: number): BusyKind | null {
+  if (workSeconds < BUSY_LEAD_IN) return null;
+  const index = Math.floor((workSeconds - BUSY_LEAD_IN) / BUSY_SEGMENT) % BUSY_SEQUENCE.length;
+  return BUSY_SEQUENCE[(index + 1) % BUSY_SEQUENCE.length]!;
+}
+
+/** Motion channels for a busy-work chore at clock time `t`. Deterministic. */
+export function busyFrame(kind: BusyKind, t: number): GestureFrame {
+  switch (kind) {
+    case "paperwork": {
+      // Clipboard held up, pen-tick wiggles while filling out a form.
+      return {
+        armBob: Math.sin(t * 5.5) * 0.02,
+        armSwing: 0.15,
+        propOffset: [0.04 * Math.sin(t * 5.5), 0.06, 0.02],
+        propTilt: 0.5,
+      };
+    }
+    case "organize": {
+      // Turning side to side, moving a folder between stacks.
+      const c = cycle(t, 0.55);
+      return {
+        armBob: 0,
+        armSwing: 0.12 * c,
+        propOffset: [0.16 * (2 * c - 1), 0.05 * c, 0.02],
+        propTilt: 0.1,
+        yaw: 0.45 * (2 * c - 1),
+      };
+    }
+  }
 }
 
 /** Motion channels for a gesture at clock time `t` (seconds). Deterministic. */

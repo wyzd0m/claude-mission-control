@@ -102,8 +102,11 @@ describe("monitor server", () => {
     expect(await response.text()).toContain("monitor");
   });
 
-  it("answers /health and 404s unknown paths", async () => {
-    expect((await get("/health")).status).toBe(200);
+  it("answers /health with the database path and 404s unknown paths", async () => {
+    const health = await get("/health");
+    expect(health.status).toBe(200);
+    const body = (await health.json()) as { ok: boolean; databasePath: string };
+    expect(body.databasePath).toBe(dbPath);
     expect((await get("/nope")).status).toBe(404);
   });
 

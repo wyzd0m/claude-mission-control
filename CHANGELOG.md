@@ -8,6 +8,16 @@ Version 1.0.0 is the first one-click release described in `docs/IMPLEMENTATION_R
 
 ### Added
 
+- Robot nametags, busy-work variety, an in-dashboard test toggle, and crisp rendering (D-031):
+  every robot now wears a Minecraft-style floating name tag; long stints at a station rotate
+  the department gesture with office chores (clipboard paperwork, folder organizing with a turn
+  to the shelf); a "Test animations" checkbox in the facility header runs the synthetic event
+  treadmill in place — clearly bannered as not real activity — and snaps back to real state
+  when unticked; and the 3D canvas renders at ≥1.5× device pixels so the diorama stays crisp on
+  large monitors. Dev launch configs now run monitors on port 8643 (`--port` flag) so sandboxed
+  dev instances can never squat the real monitor's port with an empty database, and `/health`
+  reports the database path. 2 new tests (172 total).
+
 - Ground-synced movement, idle life, and an animation test mode (D-030): robots now step and
   roll exactly as far as the floor passing beneath them (their true ground velocity drives the
   gait and wheel), move at a calmer pace, and long walks are no longer compressed. Idle robots

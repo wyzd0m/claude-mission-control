@@ -85,7 +85,8 @@ export const ROBOT_SPEED = 2.4; // world units per second
 export const AMBIENT_INTERVAL = 12; // seconds of idleness before ambient moves
 export const AMBIENT_STAGGER = 5; // extra idle seconds per robot index
 export const PHASE_DURATIONS = {
-  working: 1.8,
+  // Long enough for the primary gesture plus one busy-work chore (D-031).
+  working: 3.4,
   outcome: 0.9,
   ambientPause: 1.6,
   fidget: 2.4,

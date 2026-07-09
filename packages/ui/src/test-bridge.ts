@@ -22,9 +22,13 @@ const DEPARTMENT_CYCLE: Department[] = [
 const OUTCOME_CYCLE = ["succeeded", "succeeded", "failed", "succeeded", "cancelled"] as const;
 
 // Every poll is 2.5 s. One synthetic event per poll keeps three robots in
-// steady rotation; every 12th poll opens a gate wait for three polls.
+// steady rotation; every 12th poll opens a gate wait for three polls, and
+// every 4th event runs slow (stays `working` for a couple of polls) so the
+// long-stint busy-work chores can be inspected too.
 const GATE_PERIOD = 12;
 const GATE_HOLD_POLLS = 3;
+const SLOW_EVERY = 4;
+const SLOW_POLLS = 2;
 
 function baseState(): DashboardState {
   const at = new Date().toISOString();
@@ -94,19 +98,60 @@ export function createTestBridge(): HostBridge {
   const state = baseState();
   let polls = 0;
   let sequence = 0;
+  let slowJob: { event: ActivityEvent; pollsLeft: number } | null = null;
 
   return {
     callTool(name: string): Promise<ToolResponse> {
       if (name === "get_mission_control_state") {
         const at = new Date().toISOString();
-        state.timeline = [syntheticEvent(sequence), ...state.timeline].slice(0, 12);
-        sequence += 1;
+        // Finish a slow event first: its terminal status lands in the
+        // timeline and the robot plays the outcome.
+        if (slowJob !== null) {
+          slowJob.pollsLeft -= 1;
+          if (slowJob.pollsLeft <= 0) {
+            state.timeline = [
+              {
+                ...slowJob.event,
+                status: "succeeded" as const,
+                completedAt: at,
+                updatedAt: at,
+                resultSummary: "Synthetic slow operation completed.",
+                errorCode: null,
+                errorSummary: null,
+              },
+              ...state.timeline,
+            ].slice(0, 12);
+            slowJob = null;
+          }
+        } else if (sequence % SLOW_EVERY === SLOW_EVERY - 1) {
+          slowJob = {
+            event: {
+              ...syntheticEvent(sequence),
+              status: "working" as const,
+              completedAt: null,
+              resultSummary: null,
+              errorCode: null,
+              errorSummary: null,
+            },
+            pollsLeft: SLOW_POLLS,
+          };
+          sequence += 1;
+        } else {
+          state.timeline = [syntheticEvent(sequence), ...state.timeline].slice(0, 12);
+          sequence += 1;
+        }
         const gatePhase = polls % GATE_PERIOD;
         const waiting = gatePhase < GATE_HOLD_POLLS;
         state.currentActivity = {
-          openEvents: waiting ? [gateWaitEvent(Math.floor(polls / GATE_PERIOD))] : [],
-          idle: !waiting,
-          idleMessage: waiting ? null : "Animation test: waiting for the next synthetic event.",
+          openEvents: [
+            ...(waiting ? [gateWaitEvent(Math.floor(polls / GATE_PERIOD))] : []),
+            ...(slowJob !== null ? [slowJob.event] : []),
+          ],
+          idle: !waiting && slowJob === null,
+          idleMessage:
+            waiting || slowJob !== null
+              ? null
+              : "Animation test: waiting for the next synthetic event.",
         };
         state.generatedAt = at;
         polls += 1;
