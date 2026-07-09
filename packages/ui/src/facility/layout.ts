@@ -246,3 +246,20 @@ export const ROBOT_HOME_POINTS: readonly Point[] = [
   [-1.9, 0.9],
   [-1.1, 1.7],
 ];
+
+/**
+ * Per-robot ambient pacing lines (idle atmosphere, D-030). Each starts at
+ * the robot's home point and stays on open Command-Hub floor, clear of the
+ * holo display, dispatch desk, plants, and the other charging pad.
+ */
+export const AMBIENT_LINES: readonly Point[][] = [
+  [STATIONS.command_core, AMBIENT_PAUSE_POINT],
+  [
+    [-1.9, 0.9],
+    [-1.9, 2.3],
+  ],
+  [
+    [-1.1, 1.7],
+    [1.1, 1.7],
+  ],
+];

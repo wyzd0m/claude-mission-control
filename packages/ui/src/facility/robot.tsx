@@ -32,12 +32,19 @@ import type { RobotPlacement } from "./animation.js";
 const STATUS_LIGHT: Record<RobotPlacement["phase"], string> = {
   idle: "#5fd39a",
   ambient: "#5fd39a",
+  fidget: "#5fd39a",
   travel: "#57c4ff",
   working: "#57c4ff",
   outcome: "#5fd39a",
   return: "#5fd39a",
   gate: "#ffc66b",
 };
+
+// One gait step per ~0.48 world units of ground covered: stepping distance,
+// wheel roll, and floor position all derive from the same velocity, so the
+// robot can never appear to slide.
+const GAIT_STEPS_PER_UNIT = 6.5;
+const WHEEL_RADIUS = 0.2;
 
 /** Hand prop for a department's work gesture: small procedural primitives. */
 function GestureProp({ department }: { department: Department }) {
@@ -417,6 +424,7 @@ export function AnimatedRobots({
   const wheelRefs = useRef<(THREE.Mesh | null)[]>([]);
   const propRefs = useRef<(THREE.Group | null)[]>([]);
   const headingRefs = useRef<number[]>(Array.from({ length: ROBOT_COUNT }, () => 0));
+  const gaitPhaseRefs = useRef<number[]>(Array.from({ length: ROBOT_COUNT }, () => 0));
   const lastKeyRef = useRef("");
   const lastRouteKeyRef = useRef("");
   const [visuals, setVisuals] = useState<RobotVisual[]>(
@@ -432,31 +440,39 @@ export function AnimatedRobots({
     const placements = robotPlacements(animRef.current);
 
     placements.forEach((placement, i) => {
-      // Grounded locomotion (D-029): the gait clock drives the bob, the
-      // body sway, and the alternating arm swing together, so the pieces
-      // read as one rolling machine instead of a sliding figurine.
-      // Per-robot phase offsets keep simultaneous walks out of lockstep.
+      // Grounded locomotion (D-029/D-030): the gait phase advances with the
+      // distance actually covered, so steps, wheel roll, and floor position
+      // stay in lockstep — a robot that slides is now geometrically
+      // impossible. Stride scales the amplitudes in and out smoothly.
+      const identityScale = ROBOT_IDENTITIES[i]!.scale;
       const stride = Math.min(placement.speed, 1);
-      const gaitT = frame.clock.elapsedTime * 9 + i * 2.1;
+      const gait =
+        gaitPhaseRefs.current[i]! + (placement.velocity * dt * GAIT_STEPS_PER_UNIT) / identityScale;
+      gaitPhaseRefs.current[i] = gait;
+      const fidgeting = placement.phase === "fidget";
       const group = groupRefs.current[i];
       if (group) {
         const [x, z] = placement.position;
-        const bob = stride > 0.03 ? Math.abs(Math.sin(gaitT)) * 0.04 * stride : 0;
+        const bob = stride > 0.03 ? Math.abs(Math.sin(gait)) * 0.05 * stride : 0;
         group.position.set(x, bob, z);
-        // Turn smoothly toward the current heading.
-        let delta = placement.heading - headingRefs.current[i]!;
+        // Turn smoothly toward the current heading; a fidgeting robot slowly
+        // sweeps its gaze from side to side instead.
+        const targetHeading = fidgeting
+          ? placement.heading + Math.sin(frame.clock.elapsedTime * 0.9 + i * 1.7) * 0.6
+          : placement.heading;
+        let delta = targetHeading - headingRefs.current[i]!;
         while (delta > Math.PI) delta -= Math.PI * 2;
         while (delta < -Math.PI) delta += Math.PI * 2;
         headingRefs.current[i] = headingRefs.current[i]! + delta * Math.min(1, dt * 8);
         group.rotation.y = headingRefs.current[i]!;
-        // Lean into movement, sway side to side with the gait.
-        group.rotation.x = placement.speed * 0.07;
-        group.rotation.z = Math.sin(gaitT) * 0.045 * stride;
+        // Lean into movement, sway side to side with the steps.
+        group.rotation.x = placement.speed * 0.06;
+        group.rotation.z = Math.sin(gait) * 0.06 * stride;
       }
-      // The ball wheel rolls with travel speed.
+      // The ball wheel rolls exactly as far as the ground passing beneath it.
       const wheel = wheelRefs.current[i];
       if (wheel) {
-        wheel.rotation.x += placement.speed * dt * 9;
+        wheel.rotation.x += (placement.velocity * dt) / (WHEEL_RADIUS * identityScale);
       }
       // Department gesture: animated channels while working, held still while
       // the outcome plays, absent everywhere else (the prop unmounts).
@@ -469,11 +485,14 @@ export function AnimatedRobots({
         : GESTURE_REST;
       const arms = armsRefs.current[i];
       if (arms) {
-        arms.position.y = gesture.armBob;
+        // Fidget: a gentle in-place arm stretch while looking around.
+        arms.position.y = fidgeting
+          ? (Math.sin(frame.clock.elapsedTime * 2.2 + i * 1.3) + 1) * 0.02
+          : gesture.armBob;
         arms.rotation.x = gesture.armSwing;
       }
-      // Alternating arm swing while travelling; still while working.
-      const swing = working ? 0 : Math.sin(gaitT) * 0.55 * stride;
+      // Alternating arm swing stepping with the gait; still while working.
+      const swing = working ? 0 : Math.sin(gait) * 0.55 * stride;
       const left = leftArmRefs.current[i];
       const right = rightArmRefs.current[i];
       if (left) left.rotation.x = swing;

@@ -1,6 +1,6 @@
 import type { DashboardState, Department, EventStatus } from "@mission-control/domain";
 import {
-  AMBIENT_PAUSE_POINT,
+  AMBIENT_LINES,
   ROBOT_HOME_POINTS,
   STATIONS,
   ROOM_POSITIONS,
@@ -22,14 +22,15 @@ import {
 //     shows its terminal status; the outcome then plays truthfully
 //   - open waiting_for_input events send one robot WALKING to the Approval
 //     Desk to hold there; when the wait clears it walks home
-//   - when the whole fleet is idle long enough, robot 0 paces a short
-//     ambient line in front of the Command Hub — atmosphere only, never
-//     presented as work
+//   - a robot idle at the hub long enough alternates two ambient behaviors
+//     on its own staggered clock: pacing a short line near its parking spot
+//     and fidgeting in place — atmosphere only, never presented as work,
+//     never inside a department room
 //   - the very first ingest marks history as seen WITHOUT animating, so a
 //     reload restores the correct quiet state instead of replaying the past
 
 export type JobOutcome = "succeeded" | "failed" | "cancelled" | "open";
-export type JobKind = "task" | "ambient" | "reposition";
+export type JobKind = "task" | "ambient" | "fidget" | "reposition";
 export type AnimationPhase = "travel" | "working" | "outcome" | "return";
 export type RestPoint = "command_core" | "security_gate";
 
@@ -63,6 +64,10 @@ export interface CurrentAnimation {
 export interface RobotUnitState {
   current: CurrentAnimation | null;
   restAt: RestPoint;
+  /** Seconds this robot has been parked with nothing to do. */
+  idleElapsed: number;
+  /** Alternates the next ambient behavior between pace and fidget. */
+  fidgetNext: boolean;
 }
 
 export interface AnimatorState {
@@ -71,23 +76,26 @@ export interface AnimatorState {
   queue: AnimationJob[];
   robots: RobotUnitState[];
   holdAtGate: boolean;
-  idleElapsed: number;
 }
 
 export const ROBOT_COUNT = ROBOT_HOME_POINTS.length;
-export const ROBOT_SPEED = 3.4; // world units per second
-export const AMBIENT_INTERVAL = 12; // seconds of idleness before a pace
+// Deliberately unhurried: fast robots read as sliding tokens instead of
+// little workers crossing a real floor.
+export const ROBOT_SPEED = 2.4; // world units per second
+export const AMBIENT_INTERVAL = 12; // seconds of idleness before ambient moves
+export const AMBIENT_STAGGER = 5; // extra idle seconds per robot index
 export const PHASE_DURATIONS = {
   working: 1.8,
   outcome: 0.9,
   ambientPause: 1.6,
+  fidget: 2.4,
 } as const;
 
 const MAX_QUEUE = 6;
 const TERMINAL: readonly EventStatus[] = ["succeeded", "failed", "cancelled"];
 
 export function travelDuration(length: number): number {
-  return Math.min(Math.max(length / ROBOT_SPEED, 0.7), 4.5);
+  return Math.min(Math.max(length / ROBOT_SPEED, 0.8), 7.5);
 }
 
 function easeInOut(t: number): number {
@@ -102,9 +110,10 @@ export function createAnimator(): AnimatorState {
     robots: Array.from({ length: ROBOT_COUNT }, () => ({
       current: null,
       restAt: "command_core",
+      idleElapsed: 0,
+      fidgetNext: false,
     })),
     holdAtGate: false,
-    idleElapsed: 0,
   };
 }
 
@@ -190,17 +199,46 @@ export function ingest(state: AnimatorState, dashboard: DashboardState): Animato
       : job;
   };
   const queue = [...state.queue.map(updateJob), ...newJobs].slice(-MAX_QUEUE);
-  const robots = state.robots.map((robot) =>
-    robot.current
-      ? { ...robot, current: { ...robot.current, job: updateJob(robot.current.job) } }
-      : robot,
-  );
+  // Fresh activity puts the fleet on alert (idle clocks restart); a plain
+  // poll that observed nothing new must NOT reset them, or ambient idling
+  // would never trigger while a live bridge polls every few seconds.
+  const alerted = newJobs.length > 0 || holdAtGate !== state.holdAtGate;
+  const robots = state.robots.map((robot) => ({
+    ...robot,
+    idleElapsed: alerted ? 0 : robot.idleElapsed,
+    current: robot.current
+      ? { ...robot.current, job: updateJob(robot.current.job) }
+      : robot.current,
+  }));
 
-  return { ...state, seen, queue, robots, holdAtGate, idleElapsed: 0 };
+  return { ...state, seen, queue, robots, holdAtGate };
 }
 
-function ambientJob(): AnimationJob {
-  return { eventId: "__ambient", department: "command_core", outcome: "open", kind: "ambient" };
+function ambientJob(index: number): AnimationJob {
+  return {
+    eventId: `__ambient:${index}`,
+    department: "command_core",
+    outcome: "open",
+    kind: "ambient",
+  };
+}
+
+/** In-place idle animation at the robot's parking spot. */
+function fidgetAnimation(index: number): CurrentAnimation {
+  const home = ROBOT_HOME_POINTS[index]!;
+  return {
+    job: {
+      eventId: `__fidget:${index}`,
+      department: "command_core",
+      outcome: "open",
+      kind: "fidget",
+    },
+    phase: "working",
+    elapsed: 0,
+    route: [home],
+    length: 0,
+    duration: PHASE_DURATIONS.fidget,
+  };
 }
 
 function repositionJob(target: RestPoint): AnimationJob {
@@ -243,7 +281,9 @@ function advanceRobot(
       : current.phase === "working"
         ? current.job.kind === "ambient"
           ? PHASE_DURATIONS.ambientPause
-          : PHASE_DURATIONS.working
+          : current.job.kind === "fidget"
+            ? PHASE_DURATIONS.fidget
+            : PHASE_DURATIONS.working
         : PHASE_DURATIONS.outcome;
 
   // An open task keeps working until its event completes.
@@ -270,6 +310,9 @@ function advanceRobot(
       if (current.job.kind === "ambient") {
         const back = [...current.route].reverse();
         return [{ ...robot, current: travelAnimation(current.job, back, "return") }, queue];
+      }
+      if (current.job.kind === "fidget") {
+        return [{ ...robot, current: null }, queue];
       }
       return [{ ...robot, current: { ...current, phase: "outcome", elapsed: 0 } }, queue];
     }
@@ -304,7 +347,6 @@ export function tick(state: AnimatorState, dt: number): AnimatorState {
 
   let queue = state.queue;
   const robots = [...state.robots];
-  let idleTouched = false;
 
   // Advance every robot's current animation.
   for (let i = 0; i < robots.length; i++) {
@@ -321,23 +363,29 @@ export function tick(state: AnimatorState, dt: number): AnimatorState {
     const [next, ...rest] = queue;
     robots[i] = {
       ...robot,
+      idleElapsed: 0,
       current: travelAnimation(next!, routeFromHome(i, robot.restAt, next!.department)),
     };
     queue = rest;
-    idleTouched = true;
   }
 
-  // If jobs remain and a robot is only ambient-pacing, it takes one over
-  // seamlessly from its live position (no jump).
+  // If jobs remain and a robot is only idling ambiently (pacing or
+  // fidgeting), it takes one over seamlessly from its live position.
   if (queue.length > 0) {
-    const i = robots.findIndex((r) => r.current !== null && r.current.job.kind === "ambient");
+    const i = robots.findIndex(
+      (r) =>
+        r.current !== null && (r.current.job.kind === "ambient" || r.current.job.kind === "fidget"),
+    );
     if (i >= 0) {
       const here = robotPlacements({ ...state, robots, queue })[i]!.position;
       const [next, ...rest] = queue;
       const base = routeBetween("command_core", next!.department);
-      robots[i] = { ...robots[i]!, current: travelAnimation(next!, [here, ...base]) };
+      robots[i] = {
+        ...robots[i]!,
+        idleElapsed: 0,
+        current: travelAnimation(next!, [here, ...base]),
+      };
       queue = rest;
-      idleTouched = true;
     }
   }
 
@@ -349,12 +397,12 @@ export function tick(state: AnimatorState, dt: number): AnimatorState {
       const robot = robots[i]!;
       robots[i] = {
         ...robot,
+        idleElapsed: 0,
         current: travelAnimation(
           repositionJob("security_gate"),
           routeFromHome(i, robot.restAt, "security_gate"),
         ),
       };
-      idleTouched = true;
     }
   }
   if (!state.holdAtGate) {
@@ -363,41 +411,53 @@ export function tick(state: AnimatorState, dt: number): AnimatorState {
       const robot = robots[i]!;
       robots[i] = {
         ...robot,
+        idleElapsed: 0,
         current: travelAnimation(
           repositionJob("command_core"),
           routeFromHome(i, robot.restAt, "command_core"),
         ),
       };
-      idleTouched = true;
     }
   }
 
-  // Ambient pacing: robot 0 only, and only when the whole fleet is idle.
-  const allIdle = robots.every((r) => r.current === null);
-  if (idleTouched || !allIdle || state.holdAtGate) {
-    return {
-      ...state,
-      robots,
-      queue,
-      idleElapsed: allIdle && !idleTouched ? state.idleElapsed : 0,
-    };
+  // Ambient idling (D-030): each hub-parked robot runs its own staggered
+  // idle clock and alternates a short pace with an in-place fidget. Never
+  // while a gate wait is showing, never inside a department room, and
+  // instantly preempted by real work above.
+  for (let i = 0; i < robots.length; i++) {
+    const robot = robots[i]!;
+    if (robot.current !== null || robot.restAt !== "command_core" || state.holdAtGate) continue;
+    const idleElapsed = robot.idleElapsed + dt;
+    if (idleElapsed < AMBIENT_INTERVAL + i * AMBIENT_STAGGER) {
+      robots[i] = { ...robot, idleElapsed };
+    } else if (robot.fidgetNext) {
+      robots[i] = { ...robot, idleElapsed: 0, fidgetNext: false, current: fidgetAnimation(i) };
+    } else {
+      robots[i] = {
+        ...robot,
+        idleElapsed: 0,
+        fidgetNext: true,
+        current: travelAnimation(ambientJob(i), AMBIENT_LINES[i]!),
+      };
+    }
   }
-  const idleElapsed = state.idleElapsed + dt;
-  if (idleElapsed >= AMBIENT_INTERVAL && robots[0]!.restAt === "command_core") {
-    const route: Point[] = [STATIONS.command_core, AMBIENT_PAUSE_POINT];
-    robots[0] = { ...robots[0]!, current: travelAnimation(ambientJob(), route) };
-    return { ...state, robots, queue, idleElapsed: 0 };
-  }
-  return { ...state, robots, queue, idleElapsed };
+
+  return { ...state, robots, queue };
 }
 
 export interface RobotPlacement {
   position: Point;
   /** Y-rotation the robot faces (its front is +z). */
   heading: number;
-  phase: AnimationPhase | "idle" | "gate" | "ambient";
-  /** Normalized movement speed (0 when stationary), for wheel animation. */
+  phase: AnimationPhase | "idle" | "gate" | "ambient" | "fidget";
+  /** Normalized movement intensity (0 when stationary), for lean/sway. */
   speed: number;
+  /**
+   * True ground speed in world units per second. Lets the renderer roll
+   * the wheel and step the gait by distance actually covered, so feet
+   * never slide against the floor.
+   */
+  velocity: number;
   activeDepartment: Department | null;
   outcome: JobOutcome | null;
   /** Department whose symbolic output the robot is carrying home. */
@@ -415,6 +475,7 @@ function stationHeading(department: Department): number {
 function placementFor(state: AnimatorState, index: number): RobotPlacement {
   const none = {
     speed: 0,
+    velocity: 0,
     activeDepartment: null as Department | null,
     outcome: null as JobOutcome | null,
     carrying: null as Department | null,
@@ -428,12 +489,16 @@ function placementFor(state: AnimatorState, index: number): RobotPlacement {
       const eased = easeInOut(t);
       const { position, heading } = pointAlongRoute(current.route, eased * current.length);
       const speed = Math.max(0, 6 * t * (1 - t)); // smoothstep derivative shape
+      // Exact d(easeInOut)/dt, so velocity integrates back to route length.
+      const easeRate = t < 0.5 ? 4 * t : 4 - 4 * t;
+      const velocity = current.duration > 0 ? (easeRate * current.length) / current.duration : 0;
       const ambient = current.job.kind === "ambient";
       return {
         ...none,
         position,
         heading,
         speed: Math.min(speed, 1.4),
+        velocity,
         phase: ambient ? "ambient" : current.phase,
         carrying:
           current.phase === "return" &&
@@ -445,7 +510,11 @@ function placementFor(state: AnimatorState, index: number): RobotPlacement {
     }
     if (current.phase === "working") {
       if (current.job.kind === "ambient") {
-        return { ...none, position: AMBIENT_PAUSE_POINT, heading: 0, phase: "ambient" };
+        const pauseAt = current.route[current.route.length - 1]!;
+        return { ...none, position: pauseAt, heading: 0, phase: "ambient" };
+      }
+      if (current.job.kind === "fidget") {
+        return { ...none, position: current.route[0]!, heading: 0, phase: "fidget" };
       }
       return {
         ...none,

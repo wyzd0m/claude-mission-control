@@ -137,6 +137,31 @@ Resolves the library question left open by D-014. The storage adapter uses `node
 - Verified by the Phase 2 test suite: migrations, transactions, foreign keys, `VACUUM INTO`
   backups, and WAL journaling all work on Node 24.
 
+## D-030 — Ground-synced gait, ambient idle life, and animation test mode
+
+**Status:** Accepted (post-v1, version 0.2.0)
+
+Follow-up to D-029 after user review ("still looks like sliding… needs more idle animations…
+add a test mode"):
+
+- **Ground-synced gait.** `RobotPlacement` now exposes true ground `velocity` (the exact
+  derivative of the eased route position, so it integrates back to route length — unit-tested).
+  The renderer advances a per-robot gait phase and the wheel roll from that velocity, making a
+  sliding robot geometrically impossible: steps, wheel, and floor position derive from the same
+  distance. `ROBOT_SPEED` drops 3.4 → 2.4 u/s and the travel-duration cap rises 4.5 → 7.5 s so
+  long routes stop being compressed into a glide.
+- **Ambient idle life.** Each hub-parked robot runs its own staggered idle clock
+  (`AMBIENT_INTERVAL + index * AMBIENT_STAGGER`) and alternates a short pace along a
+  hand-authored line near its parking spot with an in-place fidget (gaze sweep + arm stretch).
+  Ambient behavior never enters a department room, never plays during a gate wait, and is
+  preempted seamlessly by real work — unchanged truthfulness rules. This also fixed a latent
+  bug: `ingest` reset the idle clock on every poll, so ambient pacing could never trigger
+  against a live 2.5 s polling bridge.
+- **Animation test mode.** `?test` (packages/ui/src/test-bridge.ts) feeds the dashboard
+  continuous, clearly labeled synthetic events cycling every department and outcome plus a
+  periodic Security Gate wait. Like `?demo`, it exists only for plain-browser inspection; hosts
+  never add the parameter, so it cannot misrepresent real activity.
+
 ## D-029 — Robot identities and grounded locomotion
 
 **Status:** Accepted (post-v1, version 0.2.0)

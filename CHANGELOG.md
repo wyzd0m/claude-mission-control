@@ -8,6 +8,16 @@ Version 1.0.0 is the first one-click release described in `docs/IMPLEMENTATION_R
 
 ### Added
 
+- Ground-synced movement, idle life, and an animation test mode (D-030): robots now step and
+  roll exactly as far as the floor passing beneath them (their true ground velocity drives the
+  gait and wheel), move at a calmer pace, and long walks are no longer compressed. Idle robots
+  come alive on staggered clocks — pacing a short line near their parking spot or fidgeting in
+  place with a gaze sweep and arm stretch — never inside a room, never during an approval wait,
+  and instantly preempted by real work. Opening the dashboard with `?test` starts animation
+  test mode: continuous, clearly labeled synthetic events that keep the fleet travelling,
+  working, failing, and holding at the gate for inspection. Also fixes ambient idling never
+  triggering while a live bridge polls. 5 new tests (170 total).
+
 - Robot identities and grounded locomotion (D-029): the fleet is now OTTO (lead courier, blue),
   PIP (small teal scout with a dome head and visor eye), and HEX (large amber hauler with a
   boxy torso and square eyes) — each with a chest name badge. Movement no longer reads as

@@ -31,7 +31,9 @@ waits at the Security Gate whenever a bulk or destructive change needs your appr
 
 Try the layout in a plain browser: `npm run build:dashboard`, then
 `node poc/scripts/serve-dashboard.mjs` and open `http://localhost:5181/?demo` (clearly labeled
-sample data). A ready-to-import example project lives in
+sample data). Open `/?test` instead for animation test mode: continuous synthetic events keep
+the robot fleet travelling, working, and holding at the gate so every animation can be
+inspected. A ready-to-import example project lives in
 [`examples/demo-project.json`](examples/demo-project.json).
 
 ## Monitor window

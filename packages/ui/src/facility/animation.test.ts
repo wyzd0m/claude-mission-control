@@ -13,6 +13,7 @@ import {
   activeRoutes,
   travelDuration,
   AMBIENT_INTERVAL,
+  AMBIENT_STAGGER,
   PHASE_DURATIONS,
   ROBOT_COUNT,
   type AnimatorState,
@@ -134,14 +135,15 @@ describe("animator", () => {
     expect(placements[2]!.phase).toBe("idle");
     expect(activeRoutes(s)).toHaveLength(2);
 
-    // Each robot arrives at its own department.
-    s = play(s, 4.6);
-    const arrived = robotPlacements(s);
-    const active = arrived
-      .map((p) => p.activeDepartment)
-      .filter((d): d is NonNullable<typeof d> => d !== null)
-      .sort();
-    expect(active).toEqual(["planning_bay", "testing_lab"]);
+    // Each robot arrives at and works its own department.
+    const visited = new Set<string>();
+    for (let t = 0; t < 10; t += 0.05) {
+      s = tick(s, 0.05);
+      for (const p of robotPlacements(s)) {
+        if (p.activeDepartment !== null) visited.add(p.activeDepartment);
+      }
+    }
+    expect([...visited].sort()).toEqual(["planning_bay", "testing_lab"]);
   });
 
   it("never teleports: successive positions stay within walking distance", () => {
@@ -260,7 +262,7 @@ describe("animator", () => {
     }
   });
 
-  it("paces a short ambient line when the whole fleet is idle, without lighting any room", () => {
+  it("paces a short ambient line when idle, without lighting any room", () => {
     let s = ingest(createAnimator(), dashboard([]));
     s = play(s, AMBIENT_INTERVAL + 0.2);
     const placements = robotPlacements(s);
@@ -269,6 +271,78 @@ describe("animator", () => {
     expect(placements[1]!.phase).toBe("idle");
     expect(placements[2]!.phase).toBe("idle");
     expect(activeRoutes(s)).toHaveLength(0); // ambient never highlights a route
+  });
+
+  it("staggers each robot's idle clock so ambient moves do not sync up", () => {
+    let s = ingest(createAnimator(), dashboard([]));
+    s = play(s, AMBIENT_INTERVAL + AMBIENT_STAGGER + 0.2);
+    const placements = robotPlacements(s);
+    expect(placements[1]!.phase).toBe("ambient"); // robot 1 pacing its own line
+    expect(placements[2]!.phase).toBe("idle"); // robot 2's turn comes later
+  });
+
+  it("alternates pacing with an in-place fidget on later idle rounds", () => {
+    let s = ingest(createAnimator(), dashboard([]));
+    // First round paces (starts at AMBIENT_INTERVAL, lasts ~3.2 s); the
+    // second idle round fidgets in place at the home point.
+    s = play(s, AMBIENT_INTERVAL + 3.2 + AMBIENT_INTERVAL - 0.6);
+    expect(robotPlacements(s)[0]!.phase).toBe("idle");
+    s = play(s, 1.2);
+    const fidgeting = robotPlacements(s)[0]!;
+    expect(fidgeting.phase).toBe("fidget");
+    expect(fidgeting.position).toEqual(ROBOT_HOME_POINTS[0]);
+    expect(fidgeting.activeDepartment).toBeNull();
+    expect(activeRoutes(s)).toHaveLength(0);
+  });
+
+  it("keeps idle clocks running across polls that observe nothing new", () => {
+    let s = ingest(createAnimator(), dashboard([]));
+    // Simulate the live 2.5 s polling loop: repeated ingests of an unchanged
+    // read model must not reset idleness, or ambient life would never play.
+    for (let poll = 0; poll < 5; poll++) {
+      s = play(s, 2.6);
+      s = ingest(s, dashboard([]));
+    }
+    expect(robotPlacements(s)[0]!.phase).toBe("ambient");
+  });
+
+  it("suppresses ambient idling entirely while an approval wait is showing", () => {
+    let s = ingest(createAnimator(), dashboard([]));
+    const waiting = event({
+      id: "hold1",
+      status: "waiting_for_input",
+      requiresInput: true,
+      department: "security_gate",
+      completedAt: null,
+    });
+    s = ingest(s, dashboard([], [waiting]));
+    s = play(s, AMBIENT_INTERVAL * 2 + AMBIENT_STAGGER * 3);
+    const phases = robotPlacements(s).map((p) => p.phase);
+    expect(phases.filter((p) => p === "gate")).toHaveLength(1);
+    expect(phases.filter((p) => p === "idle")).toHaveLength(2);
+  });
+
+  it("reports true ground velocity that integrates back to the route length", () => {
+    let s = ingest(createAnimator(), dashboard([]));
+    expect(robotPlacements(s)[0]!.velocity).toBe(0);
+    s = ingest(s, dashboard([event({ id: "v1", department: "delivery_dock" })]));
+
+    const step = 0.02;
+    let travelled = 0;
+    let peak = 0;
+    s = tick(s, step); // dispatch the job
+    while (robotPlacements(s)[0]!.phase === "travel") {
+      const placement = robotPlacements(s)[0]!;
+      travelled += placement.velocity * step;
+      peak = Math.max(peak, placement.velocity);
+      s = tick(s, step);
+    }
+    const length = routeLength(routeBetween("command_core", "delivery_dock"));
+    expect(travelled).toBeGreaterThan(length * 0.97);
+    expect(travelled).toBeLessThan(length * 1.03);
+    expect(peak).toBeGreaterThan(0);
+    // Working at the station: no ground speed.
+    expect(robotPlacements(s)[0]!.velocity).toBe(0);
   });
 
   it("lets real work preempt ambient pacing without a position jump", () => {

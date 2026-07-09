@@ -40,6 +40,17 @@ Run from the repository root:
 The Phase 0 PoC is intentionally not part of the workspace. To work with it:
 `cd poc && npm install && npm run verify` (see `poc/README.md`).
 
+## Inspecting the dashboard in a plain browser
+
+`npm run build:dashboard`, then `node poc/scripts/serve-dashboard.mjs` and open
+`http://localhost:5181` with one of the dev query parameters (MCP hosts never add these):
+
+| Query      | Bridge                                                                                                                                                                          |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `?demo`    | Static sample data plus a slow rotation of sample events (layout inspection)                                                                                                    |
+| `?test`    | Animation test mode: continuous synthetic events across every department and outcome, with a periodic Security Gate wait — exercises travel, gestures, outcomes, and gate holds |
+| `?monitor` | Read-only monitor bridge (normally added by the monitor process itself)                                                                                                         |
+
 ## Running the MCP server locally
 
 | Command               | What it does                                                              |
