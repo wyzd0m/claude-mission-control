@@ -14,6 +14,8 @@ facility where a small robot truthfully acts out every Mission Control operation
 - **Truthful by construction** — the visualization renders only persisted tool events and saved
   project state. It never claims to show Claude's reasoning, and unknown progress stays unknown.
 
+  <img width="426" height="240" alt="0710(1)" src="https://github.com/user-attachments/assets/01778b21-e95c-4180-a361-f147479bde12" />
+
 ## What it does
 
 Ask Claude things like:
