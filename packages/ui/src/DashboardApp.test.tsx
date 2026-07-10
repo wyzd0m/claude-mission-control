@@ -144,7 +144,8 @@ describe("DashboardApp", () => {
     ).toBeDefined();
   });
 
-  it("shows waiting approvals with the conversation hint", async () => {
+  it("shows waiting approvals with working Approve/Reject buttons (D-033)", async () => {
+    const user = userEvent.setup();
     const waiting = event({
       id: "e2",
       status: "waiting_for_input",
@@ -161,7 +162,35 @@ describe("DashboardApp", () => {
     );
     render(<DashboardApp bridge={bridge} />);
     expect(await screen.findByText("Waiting for your approval")).toBeDefined();
+    expect(screen.getByText(/Approve or reject it here/)).toBeDefined();
+
+    await user.click(screen.getByRole("button", { name: "Approve" }));
+    await waitFor(() => {
+      expect(
+        bridge.calls.some((c) => c.name === "approve_pending_operation" && c.args.eventId === "e2"),
+      ).toBe(true);
+    });
+  });
+
+  it("keeps approvals read-only in monitor mode (no buttons, conversation hint)", async () => {
+    const waiting = event({
+      id: "e3",
+      status: "waiting_for_input",
+      requiresInput: true,
+      completedAt: null,
+      resultSummary: null,
+      displayLabel: "Awaiting approval: bulk task update",
+      department: "security_gate",
+    });
+    const bridge = new FakeBridge(
+      dashboardState({
+        currentActivity: { openEvents: [waiting], idle: false, idleMessage: null },
+      }),
+    );
+    render(<DashboardApp bridge={bridge} readOnly />);
+    expect(await screen.findByText("Waiting for your approval")).toBeDefined();
     expect(screen.getByText(/Approve or reject it in the conversation/)).toBeDefined();
+    expect(screen.queryByRole("button", { name: "Approve" })).toBeNull();
   });
 
   it("creates a task through the form and refreshes state", async () => {

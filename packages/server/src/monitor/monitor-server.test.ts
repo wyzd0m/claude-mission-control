@@ -120,6 +120,45 @@ describe("monitor server", () => {
     expect(await monitorAlreadyRunningAt(freedPort)).toBe(false);
   });
 
+  it("pushes fresh state over /events when another connection commits", async () => {
+    const response = await fetch(`http://127.0.0.1:${monitor.port}/events`, {
+      headers: { accept: "text/event-stream" },
+    });
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toContain("text/event-stream");
+    const reader = response.body!.getReader();
+    const decoder = new TextDecoder();
+
+    async function readUntil(text: string, timeoutMs: number): Promise<string> {
+      let collected = "";
+      const deadline = Date.now() + timeoutMs;
+      while (Date.now() < deadline && !collected.includes(text)) {
+        const chunk = (await Promise.race([
+          reader.read(),
+          new Promise<null>((resolve) => setTimeout(() => resolve(null), deadline - Date.now())),
+        ])) as { done: boolean; value?: Uint8Array } | null;
+        if (chunk === null || chunk.done) break;
+        collected += decoder.decode(chunk.value, { stream: true });
+      }
+      return collected;
+    }
+
+    // Immediate snapshot on subscribe.
+    const snapshot = await readUntil("event: state", 2000);
+    expect(snapshot).toContain("event: state");
+    expect(snapshot).toContain("Monitored");
+
+    // A commit from another connection (the extension) is pushed without
+    // any request from the client.
+    const { db } = openDatabase(dbPath);
+    createProjectService(createServiceContext(db)).create({ name: "Pushed", goal: "Fast" });
+    db.close();
+    const pushed = await readUntil("Pushed", 4000);
+    expect(pushed).toContain("Pushed");
+
+    await reader.cancel();
+  });
+
   it("does not mistake another application for a monitor", async () => {
     const impostor = http.createServer((_req, res) => {
       res.writeHead(200, { "content-type": "text/plain" });

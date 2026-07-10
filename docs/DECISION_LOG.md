@@ -162,6 +162,44 @@ a packaged install.
   `high-performance` GPU, since browsers put some canvases on the power-saving integrated GPU
   of dual-GPU machines.
 
+## D-033 — Dashboard approvals via server-held pending operations
+
+**Status:** Accepted (post-v1, version 0.2.0)
+
+Polish goal "in-dashboard approve/reject buttons". The blocker was that apply tools need the
+full previewed payload, which only the conversation had. Resolution: when a preview opens its
+Security Gate waiting event, the MCP server keeps the exact previewed operation in memory —
+an apply closure plus its confirmation token — keyed by the waiting event's id. Two new tools
+(29 total):
+
+- `approve_pending_operation({ eventId })` executes the stored operation exactly as previewed
+  (the token still burns through the same ApprovalService path, so single-use, expiry, and
+  payload binding all hold) and resolves the gate event as succeeded.
+- `reject_pending_operation({ eventId })` invalidates the token (the conversation cannot apply
+  a rejected preview either) and cancels the gate event. Nothing is written.
+
+The Approve/Reject buttons render on waiting cards in the in-chat widget only: the monitor is
+read-only by construction (D-025) and a separate process without the in-memory tokens, so it
+shows the wait and points at the conversation or widget. Pending operations are in-memory like
+the tokens themselves (D-020): a restart invalidates open previews and the user previews again.
+
+## D-032 — Monitor push updates over SSE, keyed off SQLite data_version
+
+**Status:** Accepted (post-v1, version 0.2.0)
+
+Polish goal "push-based live updates". The monitor watches `PRAGMA data_version` — a
+per-connection counter that changes only when another connection commits — every 400 ms, and on
+change pushes the freshly built read model to `/events` (Server-Sent Events, 127.0.0.1 only,
+initial snapshot on subscribe, heartbeats to keep the pipe open). The monitor bridge feeds
+pushed states through a new optional `HostBridge.onStateUpdate` channel.
+
+Latency drops from up to 2.5 s to under half a second in the monitor window. D-024 is
+explicitly preserved: the 2.5 s poll keeps running everywhere as the correctness baseline
+(EventSource reconnects are best-effort), and the in-chat widget stays poll-only because MCP
+hosts expose no push channel. Alternatives considered: WebSockets (two-way machinery for a
+one-way stream), `fs.watch` on the WAL file (noisy and platform-dependent), and a shorter poll
+(more queries for worse latency).
+
 ## D-031 — Nametags, busy-work variety, in-dashboard test toggle, crisp rendering
 
 **Status:** Accepted (post-v1, version 0.2.0)

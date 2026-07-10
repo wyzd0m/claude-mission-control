@@ -18,14 +18,36 @@ function Elapsed({ since }: { since: string }) {
   return <> · elapsed {seconds}s</>;
 }
 
-function EventRow({ event }: { event: ActivityEvent }) {
+function EventRow({
+  event,
+  onApprove,
+  onReject,
+  busy = false,
+}: {
+  event: ActivityEvent;
+  /** Present only where dashboard approvals work (D-033): the in-chat widget. */
+  onApprove?: ((eventId: string) => void) | undefined;
+  onReject?: ((eventId: string) => void) | undefined;
+  busy?: boolean;
+}) {
   const progress = progressText(event.progressCurrent, event.progressTotal);
+  const awaitingApproval = event.requiresInput && event.status === "waiting_for_input";
   return (
     <li className="event-row">
       <div className="row">
         <span className={`status-text status-${event.status}`}>{STATUS_TEXT[event.status]}</span>
         <span className="event-label">{event.displayLabel}</span>
         {event.requiresInput && <span className="badge approval">needs approval</span>}
+        {awaitingApproval && onApprove !== undefined && onReject !== undefined && (
+          <span className="row" style={{ marginLeft: "auto", gap: 6 }}>
+            <button type="button" disabled={busy} onClick={() => onApprove(event.id)}>
+              Approve
+            </button>
+            <button type="button" disabled={busy} onClick={() => onReject(event.id)}>
+              Reject
+            </button>
+          </span>
+        )}
       </div>
       <div className="event-meta">
         {event.toolName} ·{" "}
@@ -48,10 +70,18 @@ function EventRow({ event }: { event: ActivityEvent }) {
 export function ActivityPanel({
   current,
   timeline,
+  onApprove,
+  onReject,
+  busy = false,
 }: {
   current: CurrentActivity;
   timeline: ActivityEvent[];
+  /** Omitted in read-only contexts (monitor): approvals then point at the conversation. */
+  onApprove?: ((eventId: string) => void) | undefined;
+  onReject?: ((eventId: string) => void) | undefined;
+  busy?: boolean;
 }) {
+  const canApproveHere = onApprove !== undefined && onReject !== undefined;
   return (
     <>
       <section className="panel" aria-label="Current activity">
@@ -65,13 +95,20 @@ export function ActivityPanel({
             <>
               <ul className="event-list">
                 {current.openEvents.map((event) => (
-                  <EventRow key={event.id} event={event} />
+                  <EventRow
+                    key={event.id}
+                    event={event}
+                    onApprove={onApprove}
+                    onReject={onReject}
+                    busy={busy}
+                  />
                 ))}
               </ul>
               {current.openEvents.some((e) => e.requiresInput) && (
                 <p className="muted">
-                  A change is waiting for approval. Approve or reject it in the conversation with
-                  Claude.
+                  {canApproveHere
+                    ? "A change is waiting for approval. Approve or reject it here, or in the conversation with Claude."
+                    : "A change is waiting for approval. Approve or reject it in the conversation with Claude, or from the in-chat dashboard."}
                 </p>
               )}
             </>

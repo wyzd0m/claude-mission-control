@@ -77,7 +77,7 @@ try {
 
   const tools = await request("tools/list", {});
   const names = tools.result.tools.map((t) => t.name);
-  assert(names.length === 27, `27 tools listed (got ${names.length})`);
+  assert(names.length === 29, `29 tools listed (got ${names.length})`);
   assert(names.includes("open_mission_control"), "dashboard tool present");
   const openTool = tools.result.tools.find((t) => t.name === "open_mission_control");
   const resourceUri = openTool._meta?.ui?.resourceUri;

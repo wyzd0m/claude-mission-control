@@ -41,6 +41,14 @@ export class ApprovalService {
   }
 
   /**
+   * Invalidate a token so it can never be consumed (a rejected approval).
+   * Unknown tokens are a no-op.
+   */
+  invalidate(token: string): void {
+    this.records.delete(token);
+  }
+
+  /**
    * Consume a token. Throws VALIDATION_FAILED if the token is unknown,
    * expired, already used, or bound to a different payload or operation.
    */

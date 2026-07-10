@@ -35,6 +35,31 @@ async function fetchState(): Promise<ToolResponse> {
 }
 
 export function createMonitorBridge(): HostBridge {
+  const pushListeners: Array<(state: DashboardState) => void> = [];
+  let source: EventSource | null = null;
+
+  // Live push (D-032): subscribe to the monitor's /events SSE stream. The
+  // browser's EventSource reconnects on its own after drops, and the 2.5 s
+  // poll keeps running regardless, so push is a latency win — never a
+  // correctness dependency.
+  function ensureEventSource(): void {
+    if (source !== null) return;
+    source = new EventSource("/events");
+    source.addEventListener("state", (event) => {
+      try {
+        const parsed = JSON.parse((event as MessageEvent<string>).data) as {
+          ok?: boolean;
+          state?: DashboardState;
+        };
+        if (parsed.ok === true && parsed.state !== undefined) {
+          for (const listener of pushListeners) listener(parsed.state);
+        }
+      } catch {
+        // Malformed frame: ignore; the next poll corrects any gap.
+      }
+    });
+  }
+
   return {
     callTool(name) {
       if (name === "get_mission_control_state") {
@@ -48,6 +73,10 @@ export function createMonitorBridge(): HostBridge {
           listener(response.state as DashboardState);
         }
       });
+    },
+    onStateUpdate(listener) {
+      pushListeners.push(listener);
+      ensureEventSource();
     },
     onConnection(listener) {
       void fetchState().then((response) => {

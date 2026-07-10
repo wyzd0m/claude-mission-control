@@ -116,6 +116,8 @@ describe("tool discovery", () => {
         "export_project",
         "preview_project_import",
         "apply_project_import",
+        "approve_pending_operation",
+        "reject_pending_operation",
         "open_mission_control",
         "get_mission_control_state",
         "get_diagnostics",

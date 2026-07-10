@@ -23,6 +23,12 @@ export interface HostBridge {
   onInitialState(listener: (state: DashboardState) => void): void;
   /** Fires when the connection to the host is established or fails. */
   onConnection(listener: (status: { connected: boolean; detail?: string }) => void): void;
+  /**
+   * Optional push channel (D-032): fires whenever the source publishes a
+   * fresh read model on its own (e.g. the monitor's SSE stream). Sources
+   * without push simply omit it — polling remains the correctness baseline.
+   */
+  onStateUpdate?(listener: (state: DashboardState) => void): void;
 }
 
 function toToolResponse(structured: unknown): ToolResponse {

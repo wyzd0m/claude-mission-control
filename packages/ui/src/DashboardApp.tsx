@@ -33,6 +33,12 @@ export function DashboardApp({
     bridge.onInitialState((initial) => {
       if (mounted.current) setState(initial);
     });
+    // Push updates (D-032): sources with a push channel (monitor SSE)
+    // deliver fresh state the moment something changes; polling continues
+    // below as the correctness baseline.
+    bridge.onStateUpdate?.((pushed) => {
+      if (mounted.current) setState(pushed);
+    });
     bridge.onConnection((status) => {
       if (mounted.current) setConnection(status);
       // Fetch state on connect in case the host did not push an initial
@@ -176,6 +182,20 @@ export function DashboardApp({
           <ActivityPanel
             current={(animationTest && testState !== null ? testState : state).currentActivity}
             timeline={(animationTest && testState !== null ? testState : state).timeline}
+            busy={busy}
+            // Dashboard approvals (D-033) act on real pending operations, so
+            // they are absent in read-only monitor mode and while the
+            // synthetic animation test feed is showing.
+            onApprove={
+              readOnly || animationTest
+                ? undefined
+                : (eventId) => void act("approve_pending_operation", { eventId })
+            }
+            onReject={
+              readOnly || animationTest
+                ? undefined
+                : (eventId) => void act("reject_pending_operation", { eventId })
+            }
           />
         </div>
         <div className="column">

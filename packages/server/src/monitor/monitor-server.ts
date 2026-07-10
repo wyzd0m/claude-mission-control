@@ -54,6 +54,13 @@ const JSON_HEADERS = {
   "cache-control": "no-store",
 } as const;
 
+// Push updates (D-032): the monitor watches SQLite's data_version — a
+// cheap counter that changes when ANOTHER connection commits — and pushes
+// a fresh read model to /events subscribers within this interval. Polling
+// stays the correctness baseline per D-024; SSE only cuts the latency.
+const WATCH_INTERVAL_MS = 400;
+const HEARTBEAT_MS = 25_000;
+
 export function startMonitorServer(options: MonitorServerOptions = {}): Promise<MonitorServer> {
   const dbPath = options.dbPath ?? databaseFilePath();
   const { db } = openDatabase(dbPath);
@@ -61,9 +68,52 @@ export function startMonitorServer(options: MonitorServerOptions = {}): Promise<
   const activity = createActivityEventService(ctx);
   const uiState = createUiStateService(ctx, activity, SERVER_VERSION);
 
+  const sseClients = new Set<http.ServerResponse>();
+
+  function stateFrame(): string {
+    const state = uiState.buildDashboardState();
+    return `event: state\ndata: ${JSON.stringify({ ok: true, state })}\n\n`;
+  }
+
+  function readDataVersion(): number {
+    const row = db.prepare("PRAGMA data_version").get() as { data_version: number };
+    return row.data_version;
+  }
+
+  let lastDataVersion = readDataVersion();
+  const watcher = setInterval(() => {
+    if (sseClients.size === 0) return;
+    try {
+      const version = readDataVersion();
+      if (version === lastDataVersion) return;
+      lastDataVersion = version;
+      const frame = stateFrame();
+      for (const client of sseClients) client.write(frame);
+    } catch {
+      // Never let a transient read error kill the watcher; subscribers
+      // still have the polling baseline.
+    }
+  }, WATCH_INTERVAL_MS);
+  const heartbeat = setInterval(() => {
+    for (const client of sseClients) client.write(":heartbeat\n\n");
+  }, HEARTBEAT_MS);
+
   const server = http.createServer((req, res) => {
     const url = new URL(req.url ?? "/", "http://127.0.0.1");
     try {
+      if (req.method === "GET" && url.pathname === "/events") {
+        res.writeHead(200, {
+          "content-type": "text/event-stream",
+          "cache-control": "no-store",
+          connection: "keep-alive",
+        });
+        // Immediate snapshot so a subscriber is current without waiting
+        // for the first change or poll.
+        res.write(stateFrame());
+        sseClients.add(res);
+        req.on("close", () => sseClients.delete(res));
+        return;
+      }
       if (req.method === "GET" && url.pathname === "/state") {
         const state = uiState.buildDashboardState();
         res.writeHead(200, JSON_HEADERS);
@@ -109,6 +159,11 @@ export function startMonitorServer(options: MonitorServerOptions = {}): Promise<
         url: `http://127.0.0.1:${port}/?monitor`,
         close: () =>
           new Promise<void>((resolveClose, rejectClose) => {
+            clearInterval(watcher);
+            clearInterval(heartbeat);
+            for (const client of sseClients) client.end();
+            sseClients.clear();
+            server.closeAllConnections();
             server.close((error) => {
               db.close();
               if (error) rejectClose(error);

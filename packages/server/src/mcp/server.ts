@@ -4,6 +4,7 @@ import { z } from "zod";
 import {
   artifactVerificationStatusSchema,
   idListSchema,
+  DomainError,
   idSchema,
   isDomainError,
   longTextSchema,
@@ -92,6 +93,8 @@ const ACTIVITY_LABELS: Record<string, string> = {
   export_project: "Packaging a project export",
   preview_project_import: "Previewing a project import",
   apply_project_import: "Applying a project import",
+  approve_pending_operation: "Approving a pending operation",
+  reject_pending_operation: "Rejecting a pending operation",
 };
 
 // Preview tools open a Security Gate waiting event bound to their token;
@@ -119,12 +122,32 @@ export function createMissionControlServer(
 
   const server = new McpServer({ name: "claude-mission-control", version: SERVER_VERSION });
 
+  // Pending dashboard approvals (D-033): when a preview opens its Security
+  // Gate wait, the exact previewed operation is kept here (keyed by the
+  // waiting event's id) so approve_pending_operation can execute it without
+  // the conversation retyping the payload. In-memory like the tokens: a
+  // restart invalidates open previews, and the user previews again.
+  interface PendingApproval {
+    token: string;
+    /** Executes the previewed operation exactly as previewed. */
+    apply: () => string;
+  }
+  const pendingApprovals = new Map<string, PendingApproval>();
+
+  function dropPendingByToken(token: string): void {
+    for (const [eventId, pending] of pendingApprovals) {
+      if (pending.token === token) pendingApprovals.delete(eventId);
+    }
+  }
+
   function register<Shape extends z.ZodRawShape>(
     name: string,
     spec: ToolSpec<Shape>,
     handler: (input: z.infer<z.ZodObject<Shape>>) => {
       text: string;
       payload: Record<string, unknown>;
+      /** Preview tools: how to apply this exact preview later (D-033). */
+      approvalApply?: () => string;
     },
   ): void {
     server.registerTool(
@@ -159,7 +182,7 @@ export function createMissionControlServer(
         const token = typeof raw.confirmationToken === "string" ? raw.confirmationToken : null;
 
         try {
-          const { text, payload, event } = activity.run(
+          const { text, payload, event, approvalApply } = activity.run(
             {
               toolName: name,
               displayLabel,
@@ -180,18 +203,29 @@ export function createMissionControlServer(
               typeof preview.confirmationToken === "string" &&
               typeof preview.expiresAt === "string"
             ) {
-              activity.beginApprovalWait(preview.confirmationToken, preview.expiresAt, {
-                toolName: name,
-                displayLabel: waitLabel,
-                projectId: event.projectId,
-                relatedTaskIds,
-              });
+              const waitEvent = activity.beginApprovalWait(
+                preview.confirmationToken,
+                preview.expiresAt,
+                {
+                  toolName: name,
+                  displayLabel: waitLabel,
+                  projectId: event.projectId,
+                  relatedTaskIds,
+                },
+              );
+              if (approvalApply !== undefined) {
+                pendingApprovals.set(waitEvent.id, {
+                  token: preview.confirmationToken,
+                  apply: approvalApply,
+                });
+              }
             }
           }
           if (APPROVAL_CONSUMING_TOOLS.has(name) && token !== null) {
             activity.resolveApprovalWait(token, "succeeded", {
               resultSummary: "Approved and applied.",
             });
+            dropPendingByToken(token);
           }
 
           return okResult(text, payload, { eventId: event.id, correlationId: event.correlationId });
@@ -205,6 +239,7 @@ export function createMissionControlServer(
                 ? error.message
                 : "An unexpected internal error occurred.",
             });
+            dropPendingByToken(token);
           }
           return errorResult(error);
         }
@@ -479,6 +514,17 @@ export function createMissionControlServer(
       return {
         text: `Preview: ${preview.affected.length} task(s) would change. Confirm with apply_bulk_task_update and token ${preview.confirmationToken} before ${preview.expiresAt}. Nothing has been modified yet.`,
         payload: { preview },
+        // Dashboard approval (D-033): apply this exact preview later.
+        approvalApply: () => {
+          const updated = tasks.applyBulkUpdate({
+            ...(input.projectId !== undefined ? { projectId: input.projectId } : {}),
+            filter,
+            changes,
+            affected: preview.affected.map(({ id, revision }) => ({ id, revision })),
+            confirmationToken: preview.confirmationToken,
+          });
+          return `Applied bulk update to ${updated.length} task(s).`;
+        },
       };
     },
   );
@@ -771,6 +817,11 @@ export function createMissionControlServer(
       return {
         text: `Import preview: project "${preview.projectName}" with ${preview.counts.tasks} tasks, ${preview.counts.decisions} decisions, ${preview.counts.artifacts} artifacts, ${preview.counts.checkpoints} checkpoints. Confirm with apply_project_import and token ${preview.confirmationToken} before ${preview.expiresAt}. Nothing has been imported yet.`,
         payload: { preview },
+        // Dashboard approval (D-033): apply this exact preview later.
+        approvalApply: () => {
+          const bundle = importExport.applyImport(input.bundle, preview.confirmationToken);
+          return `Imported project "${bundle.project.name}" with ${bundle.tasks.length} task(s).`;
+        },
       };
     },
   );
@@ -800,6 +851,86 @@ export function createMissionControlServer(
             checkpoints: bundle.checkpoints.length,
           },
         },
+      };
+    },
+  );
+
+  // ------------------------------------------------- dashboard approvals
+
+  register(
+    "approve_pending_operation",
+    {
+      title: "Approve pending operation",
+      description:
+        "Approves a Security Gate preview that is waiting for input, executing the previewed change exactly as previewed. Side effect: applies the pending operation. Equivalent to calling the apply tool with the preview's confirmation token; used by the dashboard's Approve button.",
+      department: "security_gate",
+      inputSchema: {
+        eventId: idSchema.describe("Id of the waiting_for_input event shown at the Security Gate."),
+      },
+    },
+    (input) => {
+      const pending = pendingApprovals.get(input.eventId);
+      if (pending === undefined) {
+        throw new DomainError(
+          "EVENT_NOT_FOUND",
+          "No pending approval is waiting on this event.",
+          "It may have been applied, rejected, or expired. Refresh the dashboard; preview again if needed.",
+        );
+      }
+      let summary: string;
+      try {
+        summary = pending.apply();
+      } catch (error) {
+        pendingApprovals.delete(input.eventId);
+        if (!isTokenRejection(error)) {
+          activity.resolveApprovalWait(pending.token, "failed", {
+            errorCode: isDomainError(error) ? error.code : "UNEXPECTED_INTERNAL_ERROR",
+            errorSummary: isDomainError(error)
+              ? error.message
+              : "An unexpected internal error occurred.",
+          });
+        }
+        throw error;
+      }
+      pendingApprovals.delete(input.eventId);
+      activity.resolveApprovalWait(pending.token, "succeeded", {
+        resultSummary: "Approved from the dashboard.",
+      });
+      return {
+        text: `Approved. ${summary}`,
+        payload: { approved: { eventId: input.eventId, summary } },
+      };
+    },
+  );
+
+  register(
+    "reject_pending_operation",
+    {
+      title: "Reject pending operation",
+      description:
+        "Rejects a Security Gate preview that is waiting for input. Side effect: invalidates the preview's confirmation token and cancels the waiting event; nothing else changes. Used by the dashboard's Reject button.",
+      department: "security_gate",
+      inputSchema: {
+        eventId: idSchema.describe("Id of the waiting_for_input event shown at the Security Gate."),
+      },
+    },
+    (input) => {
+      const pending = pendingApprovals.get(input.eventId);
+      if (pending === undefined) {
+        throw new DomainError(
+          "EVENT_NOT_FOUND",
+          "No pending approval is waiting on this event.",
+          "It may have been applied, rejected, or expired. Refresh the dashboard; preview again if needed.",
+        );
+      }
+      pendingApprovals.delete(input.eventId);
+      ctx.approvals.invalidate(pending.token);
+      activity.resolveApprovalWait(pending.token, "cancelled", {
+        resultSummary: "Rejected from the dashboard.",
+      });
+      return {
+        text: "Rejected the pending operation. Nothing was changed.",
+        payload: { rejected: { eventId: input.eventId } },
       };
     },
   );

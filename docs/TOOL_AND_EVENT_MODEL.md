@@ -200,6 +200,30 @@ Creates a portable export.
 - Department: Delivery Dock
 - Side effect: writes export file
 
+### Dashboard approvals
+
+When a preview tool opens its Security Gate waiting event, the server keeps the exact
+previewed operation in memory, keyed by that event's id (D-033). The dashboard's Approve and
+Reject buttons call these tools; the conversation's apply tools remain equivalent.
+
+#### `approve_pending_operation`
+
+Executes the pending operation behind a waiting Security Gate event, exactly as previewed.
+
+- Department: Security Gate
+- Side effect: applies the previewed operation
+- Input: the waiting event's id
+- Rule: fails with `EVENT_NOT_FOUND` when nothing is pending on that event (already
+  resolved, rejected, expired, or the server restarted)
+
+#### `reject_pending_operation`
+
+Invalidates the pending operation's confirmation token and cancels the waiting event.
+
+- Department: Security Gate
+- Side effect: none beyond cancelling the wait — nothing is applied, and the
+  conversation can no longer apply the rejected preview either
+
 ### Dashboard
 
 #### `open_mission_control`

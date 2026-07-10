@@ -23,7 +23,7 @@ Ask Claude things like:
 > "Save a checkpoint so we can continue tomorrow." — then, in a new conversation:
 > "Get the latest checkpoint and prepare the project context."
 
-Claude uses 27 Mission Control tools; every call becomes a persisted activity event. The
+Claude uses 29 Mission Control tools; every call becomes a persisted activity event. The
 dashboard (opened with _"open Mission Control"_) shows the project header and stage bar, an exact
 activity panel, an event timeline, task/decision/checkpoint views — and the facility, where the
 robot dispatches from the Command Core, works in the department that matches the operation, and
@@ -71,7 +71,7 @@ Claude Desktop go to Settings → Extensions → Advanced settings → Install E
 
 ```mermaid
 flowchart TD
-    A[Claude Desktop host] -->|"MCP (stdio)"| B[MCP adapter\n27 tools, thin]
+    A[Claude Desktop host] -->|"MCP (stdio)"| B[MCP adapter\n29 tools, thin]
     B --> C[Application services\nprojects · tasks · records · context · import/export]
     C --> D[Domain core\nrules + Zod schemas\nframework-free]
     C --> E[(SQLite\nnode:sqlite, migrations,\npre-upgrade backups)]
@@ -91,7 +91,7 @@ flowchart TD
   and animates a pure, unit-tested scene state; ambient motion is never presented as work.
 
 Key architectural decisions are recorded in [`docs/DECISION_LOG.md`](docs/DECISION_LOG.md)
-(D-001 through D-026). The eight end-to-end workflows are documented in
+(D-001 through D-033). The eight end-to-end workflows are documented in
 [`docs/WORKFLOWS.md`](docs/WORKFLOWS.md).
 
 ## Honesty model
@@ -109,8 +109,6 @@ The facility is an interface for verified events, not an AI mind reader
 
 ## Polish goals (planned, tracked in Mission Control itself)
 
-- In-dashboard approve/reject buttons for Security Gate previews.
-- Push-based live updates below the current 2.5 s poll.
 - macOS hardware verification.
 
 ## Known limitations
@@ -118,11 +116,11 @@ The facility is an interface for verified events, not an AI mind reader
 - **Host compatibility moves fast.** MCP Apps support in Claude Desktop is new; re-verify after
   app updates (an earlier host version did not surface extension tools in chat — documented in
   [`poc/README.md`](poc/README.md)).
-- Live updates use 2.5-second polling, so the facility reacts within a few seconds, not
-  instantly. Fast consecutive operations are replayed sequentially (queue capped; the timeline
-  is always authoritative).
-- One robot, by design (D-011). In-dashboard approval buttons are deferred — approvals happen in
-  the conversation.
+- The monitor window reacts in well under a second (SSE push, D-032); the in-chat widget polls
+  every 2.5 seconds because MCP hosts expose no push channel. Fast consecutive operations are
+  replayed sequentially by the robot fleet (queue capped; the timeline is always authoritative).
+- Approve/Reject buttons live in the in-chat dashboard. The monitor stays read-only by
+  construction (D-025), so it shows pending approvals but points at the conversation or widget.
 - macOS is expected to work (no native dependencies) but has not been tested on hardware.
 
 ## Development

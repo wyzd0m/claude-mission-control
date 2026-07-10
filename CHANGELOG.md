@@ -8,6 +8,19 @@ Version 1.0.0 is the first one-click release described in `docs/IMPLEMENTATION_R
 
 ### Added
 
+- In-dashboard approvals (D-033): pending Security Gate previews now show Approve and Reject
+  buttons on their waiting card in the in-chat dashboard. Two new tools (29 total) act on the
+  waiting event's id: `approve_pending_operation` executes the operation exactly as previewed
+  (same single-use, payload-bound token underneath) and `reject_pending_operation` invalidates
+  the token — a rejected preview cannot be applied from the conversation either. The read-only
+  monitor shows the wait and points at the widget or conversation. 2 new e2e scenarios.
+
+- Push-based live updates in the monitor (D-032): the monitor now streams state over
+  Server-Sent Events (`/events`), watching SQLite's `data_version` so a commit from the
+  extension appears in the window in under half a second instead of up to 2.5 s. The poll
+  remains the correctness baseline (D-024); the in-chat widget keeps polling because MCP hosts
+  expose no push channel. 1 new test.
+
 - Robot nametags, busy-work variety, an in-dashboard test toggle, and crisp rendering (D-031):
   every robot now wears a Minecraft-style floating name tag; long stints at a station rotate
   the department gesture with office chores (clipboard paperwork, folder organizing with a turn

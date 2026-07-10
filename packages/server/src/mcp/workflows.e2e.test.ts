@@ -332,3 +332,62 @@ describe("scenario 8: preview and approve a bulk change", () => {
     expect((data.error as { message: string }).message).toMatch(/already used/);
   });
 });
+
+describe("scenario 9: approve and reject pending operations from the dashboard", () => {
+  it("approves a previewed bulk change by its waiting event id", async () => {
+    const s = await startSession();
+    await ok(s, "create_project", { name: "Demo" });
+    await ok(s, "create_task", { title: "A" });
+    await ok(s, "create_task", { title: "B" });
+    await ok(s, "preview_bulk_task_update", { filterStatus: "todo", status: "in_progress" });
+
+    const waiting = s.activity
+      .getCurrentActivity()
+      .openEvents.find((e) => e.status === "waiting_for_input");
+    expect(waiting).toBeDefined();
+
+    const approved = await ok(s, "approve_pending_operation", { eventId: waiting!.id });
+    expect((approved.approved as { summary: string }).summary).toMatch(/2 task\(s\)/);
+
+    const moved = (await ok(s, "list_tasks", { status: "in_progress" })).tasks as unknown[];
+    expect(moved).toHaveLength(2);
+    const gate = s.activity.getTimeline(50).find((e) => e.id === waiting!.id);
+    expect(gate?.status).toBe("succeeded");
+    expect(gate?.resultSummary).toBe("Approved from the dashboard.");
+
+    // The pending entry is gone: a second approval is a clear error.
+    const again = await call(s, "approve_pending_operation", { eventId: waiting!.id });
+    expect(again.result.isError).toBe(true);
+    expect((again.data.error as { code: string }).code).toBe("EVENT_NOT_FOUND");
+  });
+
+  it("rejects a previewed change: nothing applies and the token is dead", async () => {
+    const s = await startSession();
+    await ok(s, "create_project", { name: "Demo" });
+    await ok(s, "create_task", { title: "A" });
+    const preview = (
+      await ok(s, "preview_bulk_task_update", { filterStatus: "todo", status: "cancelled" })
+    ).preview as { affected: Array<{ id: string; revision: number }>; confirmationToken: string };
+
+    const waiting = s.activity
+      .getCurrentActivity()
+      .openEvents.find((e) => e.status === "waiting_for_input");
+    await ok(s, "reject_pending_operation", { eventId: waiting!.id });
+
+    // Nothing changed, the gate event is cancelled, and the conversation
+    // cannot apply the rejected preview either.
+    const stillTodo = (await ok(s, "list_tasks", { status: "todo" })).tasks as unknown[];
+    expect(stillTodo).toHaveLength(1);
+    const gate = s.activity.getTimeline(50).find((e) => e.id === waiting!.id);
+    expect(gate?.status).toBe("cancelled");
+
+    const { result, data } = await call(s, "apply_bulk_task_update", {
+      filterStatus: "todo",
+      status: "cancelled",
+      affected: preview.affected,
+      confirmationToken: preview.confirmationToken,
+    });
+    expect(result.isError).toBe(true);
+    expect((data.error as { message: string }).message).toMatch(/unknown token/);
+  });
+});
