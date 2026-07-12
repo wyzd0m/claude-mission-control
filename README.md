@@ -9,9 +9,7 @@ Mission Control operation.
 > installed and verified on Claude Desktop (Windows 11). Independent portfolio project — not
 > affiliated with or endorsed by Anthropic.
 
-<p align="center">
-  <img width="640" alt="The Mission Control monitor: the robot fleet working the facility as Claude uses the tools" src="https://github.com/user-attachments/assets/01778b21-e95c-4180-a361-f147479bde12" />
-</p>
+https://github.com/user-attachments/assets/78a83311-fa42-4546-b5b3-c91fc70cfac8
 
 - **One-click install** — a single `.mcpb` file. No API key, no Node/Python, no config editing.
 - **Local-first** — everything lives in a SQLite database in your user profile. No cloud, no
