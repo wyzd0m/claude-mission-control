@@ -1,6 +1,6 @@
 {
   "name": "@mission-control/server",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "MCP adapter, application services, storage, and activity events for Claude Mission Control. No UI frameworks.",
   "type": "module",

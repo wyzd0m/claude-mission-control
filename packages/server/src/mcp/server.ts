@@ -50,7 +50,7 @@ import { createImportExportService } from "../services/import-export-service.js"
 import type { ServiceContext } from "../services/service-context.js";
 import { errorResult, okResult } from "./results.js";
 
-export const SERVER_VERSION = "0.1.0";
+export const SERVER_VERSION = "0.2.0";
 
 // The MCP adapter stays thin (docs/SYSTEM_ARCHITECTURE.md): declare tools,
 // validate input, call a service, shape the structured result. Every

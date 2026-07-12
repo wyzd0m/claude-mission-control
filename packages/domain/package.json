@@ -1,6 +1,6 @@
 {
   "name": "@mission-control/domain",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "Domain core for Claude Mission Control. Framework-free: no MCP SDK, no React, no Three.js, no database driver.",
   "type": "module",

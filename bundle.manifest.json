@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "claude-mission-control",
   "display_name": "Claude Mission Control",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Local-first project workspace for Claude Desktop: structured project, task, decision, and checkpoint tools with a truthful low-poly isometric mission-control dashboard. No API key, all data stays local.",
   "author": {
     "name": "wyzd0m"

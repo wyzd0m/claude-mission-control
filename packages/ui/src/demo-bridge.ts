@@ -11,7 +11,7 @@ const NOW = new Date().toISOString();
 function demoState(): DashboardState {
   return {
     generatedAt: NOW,
-    serverVersion: "0.1.0 (demo data)",
+    serverVersion: "0.2.0 (demo data)",
     projects: [
       {
         id: "demo-project",
