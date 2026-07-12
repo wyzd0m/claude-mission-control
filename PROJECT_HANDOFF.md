@@ -1,8 +1,8 @@
 # PROJECT_HANDOFF.md — Claude Mission Control
 
-> Session handoff written 2026-07-08. Everything a fresh Claude session needs to continue this
-> project without reading the prior conversation. Read `CLAUDE.md` first (permanent engineering
-> contract), then this file.
+> Session handoff, last rewritten 2026-07-11 (v0.2.0 cut). Everything a fresh Claude session
+> needs to continue this project without reading prior conversations. Read `CLAUDE.md` first
+> (permanent engineering contract), then this file.
 
 ---
 
@@ -11,32 +11,39 @@
 **Claude Mission Control** — a local-first MCP workspace extension for Claude Desktop, built
 entirely by Claude for the user (GitHub: `wyzd0m`, machine user `nicky`, Windows 11).
 
-- Claude Desktop is the AI interface; the extension provides 27 structured MCP tools (projects,
-  tasks, decisions, artifacts, checkpoints, context packages, import/export) over a local SQLite
-  database.
-- The dashboard is an embedded MCP App: a React UI with a **procedural low-poly isometric office
-  diorama** where a small service robot truthfully acts out Mission Control operations.
+- Claude Desktop is the AI interface; the extension provides 29 structured MCP tools (projects,
+  tasks, decisions, artifacts, checkpoints, context packages, import/export, dashboard
+  approvals) over a local SQLite database.
+- The dashboard is an embedded MCP App: a React UI with a **procedural low-poly isometric
+  office diorama** where a fleet of three named robots (OTTO, PIP, HEX) truthfully acts out
+  Mission Control operations.
 - No Anthropic API key, no telemetry, no network access. All data local.
-- Ships as a one-click `.mcpb` bundle; also has a standalone read-only **monitor** window.
+- Ships as a one-click `.mcpb` bundle; also has a standalone read-only **monitor** window with
+  SSE push updates.
 
-**Repo:** `github.com/wyzd0m/claude-mission-control` (private). Local working copy:
+**Repo:** `github.com/wyzd0m/claude-mission-control` (private as of this writing; the user may
+flip it public for job applications). Local working copy:
 `C:\Users\nicky\Downloads\claude-mission-control-planning\claude-mission-control-planning`.
-Release `v0.1.0` is published on GitHub with the `.mcpb` asset.
 
-**Status: version 1 shipped and verified on the user's machine.** All ten roadmap phases done,
-plus post-v1 work: the standalone monitor, a full visual redesign (office diorama), and a
-responsive-layout pass. CI green throughout (GitHub Actions, Windows + Linux, 151 tests).
+**Status: v0.2.0 cut 2026-07-11.** Version 1 (0.1.0) shipped and user-verified 2026-07-07; the
+post-v1 round delivered the monitor, the office redesign, the robot fleet with identities and
+grounded movement, per-department work gestures, readable signage, idle life, an animation test
+mode, SSE push updates, and in-dashboard approvals. Every polish goal is done except macOS
+hardware verification (needs the user's machine). CI green throughout (GitHub Actions,
+Windows + Linux, 181 tests). The user is applying to jobs with this repo as the portfolio
+centerpiece (Claude Corps Fellow — values end-to-end solo builds and agent-framework skills).
 
 ---
 
 ## 2. Architecture
 
 npm workspaces monorepo, strict TypeScript project references, architecture boundaries enforced
-by ESLint (`eslint.config.mjs` — e.g. `packages/domain` cannot import React/MCP/SQLite; UI cannot
-import MCP transports or `node:fs`).
+by ESLint (`eslint.config.mjs` — e.g. `packages/domain` cannot import React/MCP/SQLite; UI
+cannot import MCP transports or `node:fs`).
 
 ```
-Claude Desktop host ──MCP stdio──▶ MCP adapter (packages/server/src/mcp/server.ts, thin)
+Claude Desktop host ──MCP stdio──▶ MCP adapter (packages/server/src/mcp/server.ts, thin,
+                                        29 tools + pending-approval registry D-033)
                                         │
                         Application services (packages/server/src/services/*)
                                         │
@@ -52,15 +59,23 @@ Claude Desktop host ──MCP stdio──▶ MCP adapter (packages/server/src/mc
                                         │
    React dashboard (packages/ui — MCP App, single-file HTML via Vite singlefile)
                                         │
-   Facility renderer (pure SceneState + route-following animator + R3F office diorama)
+   Facility renderer (pure SceneState + fleet animator + R3F office diorama)
+
+Standalone monitor (packages/server/src/monitor): loopback HTTP over the same DB,
+/state + /health (reports databasePath) + /events (SSE push via PRAGMA data_version
+watch, D-032). Read-only by construction (D-025).
 ```
 
-**Data locations (user machine):** DB `%APPDATA%\ClaudeMissionControl\data\mission-control.db`,
-backups + exports alongside. Env overrides: `CMC_DATA_DIR`, `CMC_UI_HTML`, `CMC_MONITOR_PORT`.
+**Data locations (user machine):** DB `%APPDATA%\ClaudeMissionControl\data\mission-control.db`
+— but note Claude Desktop is MSIX-packaged, so the extension's writes may land under the
+package's virtualized store (`%LOCALAPPDATA%\Packages\<AnthropicClaude…>\LocalCache\Roaming\
+ClaudeMissionControl`); see the 2026-07-10 commit "Find Claude Desktop's MSIX-virtualized
+data". `/health` on the monitor reports the resolved path. Env overrides: `CMC_DATA_DIR`,
+`CMC_UI_HTML`, `CMC_MONITOR_PORT` (or `--port`).
 
-**Three UI bridges** (`packages/ui/src/*bridge*.ts`): ext-apps (real host), monitor (fetches
-`/state` from the monitor process, read-only), demo (`?demo` query — rotating sample events for
-layout inspection). `?monitor` query = read-only monitor mode.
+**Four UI bridges** (`packages/ui/src/*bridge*.ts`): ext-apps (real host), monitor (SSE +
+`/state`, read-only), demo (`?demo` — sample data), test (`?test` — continuous synthetic
+events exercising the fleet; also reachable via the in-dashboard "Test animations" checkbox).
 
 ---
 
@@ -69,208 +84,109 @@ layout inspection). `?monitor` query = read-only monitor mode.
 ### Contracts & docs (read before feature work)
 
 - `CLAUDE.md` — permanent engineering contract (phases, truthfulness rules, standards).
+- `docs/DECISION_LOG.md` — **D-001 … D-033, all architectural decisions. Always update it.**
 - `docs/PRODUCT_REQUIREMENTS.md`, `docs/SYSTEM_ARCHITECTURE.md`, `docs/TOOL_AND_EVENT_MODEL.md`,
   `docs/MCP_OBSERVABILITY_MODEL.md`, `docs/VISUAL_DESIGN.md`, `docs/TESTING_STRATEGY.md`,
-  `docs/ACCEPTANCE_CRITERIA.md`, `docs/IMPLEMENTATION_ROADMAP.md`.
-- `docs/DECISION_LOG.md` — **D-001 … D-025, all architectural decisions. Always update it.**
-- `docs/WORKFLOWS.md` — the 8 e2e scenarios with visual mappings and failure behavior.
-- `docs/INSTALL.md`, `docs/DEVELOPMENT.md`, `docs/PORTFOLIO_NOTES.md`, `CHANGELOG.md`.
-- `C:\Users\nicky\Downloads\CLAUDE_VISUAL_REDESIGN.md` — the user's 5-stage visual redesign spec
-  (completed; kept outside the repo).
+  `docs/ACCEPTANCE_CRITERIA.md`, `docs/IMPLEMENTATION_ROADMAP.md`, `docs/WORKFLOWS.md`,
+  `docs/INSTALL.md`, `docs/DEVELOPMENT.md`, `docs/PORTFOLIO_NOTES.md`, `CHANGELOG.md`.
 
 ### Domain (`packages/domain/src/`)
 
-- `project.ts`, `task.ts`, `decision.ts`, `artifact.ts`, `checkpoint.ts` — records + rules
-  (revisions for optimistic concurrency; blocked-needs-reason; done stamps completedAt; etc.).
-- `activity-event.ts` — event contract: 8 departments, 7 statuses, transition state machine,
-  explicit-progress-only rules.
-- `export.ts` — portable export format + import validation. `repositories.ts` — storage
-  interfaces. `ui-state.ts` — `DashboardState` read model. `errors.ts` — stable error codes.
+- `project.ts`, `task.ts`, `decision.ts`, `artifact.ts`, `checkpoint.ts` — records + rules.
+- `activity-event.ts` — event contract: 8 departments, 7 statuses, transition state machine.
+- `export.ts`, `repositories.ts`, `ui-state.ts` (`DashboardState`), `errors.ts` (stable codes).
 
 ### Server (`packages/server/src/`)
 
-- `storage/` — `database.ts` (node:sqlite, WAL, pre-migration backup), `migrations.ts` (1 initial
-  migration), `repositories.ts` (SQLite impls), `import-export.ts`, `paths.ts`.
-- `services/` — `service-context.ts` (wiring + `requireProject` active-project fallback),
-  `project-service.ts`, `task-service.ts` (bulk preview/apply), `record-service.ts`,
-  `context-package-service.ts`, `import-export-service.ts`, `approval-service.ts` (single-use,
-  payload-hash-bound, expiring tokens), `activity-event-service.ts` (event lifecycle, gate waits,
-  projections, orphan cancellation), `ui-state-service.ts`.
-- `mcp/` — `server.ts` (all 27 tools; every call wrapped in an event lifecycle; dashboard tools
-  are silent per D-022), `main.ts` (stdio entry), `results.ts` (`{ok, error{code,message,
-recovery}}` contract), `ui-resource.ts` (dashboard HTML resolution: CMC_UI_HTML → bundle →
-  repo dev build).
-- `monitor/` — `monitor-server.ts` (`startMonitorServer()`, 127.0.0.1 only, `/state` `/health`,
-  never mutates), `main.ts` (CLI, auto-opens browser, `--no-open`).
+- `storage/` — `database.ts`, `migrations.ts`, `repositories.ts`, `import-export.ts`, `paths.ts`.
+- `services/` — `service-context.ts`, `project-service.ts`, `task-service.ts`,
+  `record-service.ts`, `context-package-service.ts`, `import-export-service.ts`,
+  `approval-service.ts` (tokens + `invalidate`), `activity-event-service.ts`,
+  `ui-state-service.ts`.
+- `mcp/server.ts` — all 29 tools; every call wrapped in an event lifecycle; pending-approval
+  registry for `approve_pending_operation` / `reject_pending_operation` (D-033).
+- `monitor/` — `monitor-server.ts` (`/state`, `/health` with databasePath, `/events` SSE),
+  `main.ts` (CLI: `--no-open`, `--port`; reuses an already-running monitor instead of
+  crashing with EADDRINUSE).
 
 ### UI (`packages/ui/src/`)
 
-- `DashboardApp.tsx` — layout, 2.5s polling (D-024), error banner, readOnly monitor mode.
-- `components/` — `ProjectHeader.tsx` (selector, stage bar), `ActivityPanel.tsx` (exact statuses,
-  elapsed timer, department dots), `WorkPanel.tsx` (Tasks/Decisions/Checkpoint/Diagnostics tabs).
-- `facility/` — **the diorama**: `materials.ts` (warm palette + lighting rig), `layout.ts`
-  (floor plan, stations/doors, waypoint graph + `routeBetween` BFS, `pointAlongRoute`),
-  `furniture.tsx` (procedural desks/chairs/shelves/plants/partitions/kiosks…), `office.tsx`
-  (shell + 8 furnished zones + door signs + state lighting), `robot.tsx` (robot model + animated
-  robot), `animation.ts` (pure animator: route travel, ambient idle pacing, gate walk/hold,
-  carried outputs, queue), `Facility.tsx` (canvas, shadows, ResponsiveZoom, route highlight),
-  `scene-state.ts` (pure DashboardState→SceneState), `StatusMap2D.tsx` (text fallback),
-  `FacilityPanel.tsx` (reduce-motion / disable-3D prefs).
-- `bridge.ts`, `monitor-bridge.ts`, `demo-bridge.ts`, `main.tsx` (bridge selection by query).
+- `DashboardApp.tsx` — 2.5s polling + optional push channel (`HostBridge.onStateUpdate`),
+  approval buttons wiring, animation-test toggle state.
+- `components/` — `ProjectHeader.tsx`, `ActivityPanel.tsx` (Approve/Reject on waiting cards),
+  `WorkPanel.tsx`.
+- `facility/` — the diorama: `materials.ts`, `layout.ts` (floor plan, waypoint graph,
+  `ROBOT_HOME_POINTS`, `AMBIENT_LINES`), `furniture.tsx`, `office.tsx` (zones + `DoorPlaque`
+  signage), `signage.tsx` (canvas-texture plaques + name tags, D-026), `robot.tsx` (variant
+  bodies OTTO/PIP/HEX, gait, props), `robot-identities.ts` (D-029), `gestures.ts`
+  (per-department work gestures + busy-work chores, D-027/D-031), `animation.ts` (pure fleet
+  animator, D-028/D-030), `Facility.tsx` (canvas, adaptive resolution), `scene-state.ts`,
+  `StatusMap2D.tsx`, `FacilityPanel.tsx` (reduce-motion / disable-3D / test-animations).
+- `bridge.ts`, `monitor-bridge.ts`, `demo-bridge.ts`, `test-bridge.ts`, `main.tsx`.
 
 ### Packaging & launchers (repo root)
 
-- `bundle.manifest.json` → `scripts/make-bundle.mjs` → `npm run pack` → `dist/claude-mission-control.mcpb`.
-- `scripts/smoke-bundle.mjs` — stdio smoke test of the packed bundle (runs in CI).
-- `scripts/make-example-export.mjs` → `examples/demo-project.json`.
-- `start-monitor.cmd` — double-click monitor launcher (first run installs+builds). A Desktop
-  shortcut **"Mission Control Monitor.lnk"** exists on the user's OneDrive Desktop pointing at it.
-- `poc/` — frozen Phase 0 spike (own toolchain, still in CI). `poc/scripts/serve-dashboard.mjs`
-  serves the built dashboard on port 5181 for browser inspection.
+- `bundle.manifest.json` → `scripts/make-bundle.mjs` → `npm run pack` →
+  `dist/claude-mission-control.mcpb`. `scripts/smoke-bundle.mjs` (expects 29 tools; CI).
+- `start-monitor.cmd` — double-click monitor launcher (desktop shortcut exists).
+- `poc/` — frozen Phase 0 spike. `poc/scripts/serve-dashboard.mjs` serves the dashboard on
+  5181 (`?demo` / `?test`).
+- `.claude/launch.json` — dev previews; **dev monitors use port 8643** so they never squat the
+  real monitor's 8642 (preview-spawned processes see a sandboxed APPDATA → empty DB).
 
 ---
 
-## 4. Completed work (chronological)
+## 4. Decisions (summary — full text in docs/DECISION_LOG.md)
 
-1. **Phase 0** platform proof (`poc/`) — found+documented a host limitation (chat didn't surface
-   extension tools on Claude Desktop 1.8555.2; RESOLVED by later host updates/full extension).
-2. **Phase 1** repo foundation — workspaces, strict TS, ESLint boundaries, Prettier, Vitest, CI.
-3. **Phase 2** domain + SQLite (node:sqlite = D-018), migrations, repos, export/import.
-4. **Phase 3** 24 MCP tools + services + approval tokens (D-020) + MCP Inspector workflow.
-5. **Phase 4** event/observability layer (D-021) — every tool call = one persisted event.
-6. **Phase 5** dashboard MCP App + `open_mission_control`/`get_mission_control_state` (D-022).
-7. **Phase 6** static facility (D-023). **Phase 7** event-driven animation + polling (D-024).
-8. **Phase 8** 8 e2e workflow scenarios. **Phase 9** `.mcpb` packaging + `get_diagnostics` +
-   pre-migration backups + CI smoke test. **Phase 10** portfolio polish, MIT license, v0.1.0
-   GitHub release (sha256 `fd0dd2a4…`).
-9. **Standalone monitor** (D-025) + double-click launcher + desktop shortcut.
-10. **Visual redesign** (user's 5-stage spec): warm connected office diorama, waypoint-routed
-    robot with idle behavior, UI integration. Commit: "Redesign facility as a connected low-poly
-    office diorama".
-11. **Responsive layout pass**: facility viewport `clamp(340px, 62vh, 980px)`, camera zoom tracks
-    canvas size (`ResponsiveZoom`), app max-width 2000px. Facility now fills large monitors.
-12. **Polish goal — real text signage** (2026-07-08, D-026): readable department nameplates on
-    every door (offscreen-canvas textures, system font, both faces) plus a freestanding Command
-    Hub sign. 154 tests.
-
-User-verified on hardware: extension installed in Claude Desktop, dashboard widget renders in
-chat, diagnostics healthy, data survives restarts, monitor updates live while Claude works.
+Load-bearing: **D-018** node:sqlite. **D-019** revision-based optimistic concurrency.
+**D-020** in-memory approval tokens. **D-021** event lifecycle semantics. **D-022** dashboard
+reads create no events. **D-023** scene = pure derivation. **D-024** 2.5s polling baseline;
+replay-on-observation. **D-025** read-only monitor. **D-026** canvas-sprite signage.
+**D-027** per-department gesture profiles. **D-028** capped robot fleet. **D-029** robot
+identities + grounded locomotion. **D-030** ground-synced gait, ambient idle, `?test` mode.
+**D-031** nametags, busy-work chores, test toggle, adaptive resolution, dev-port separation.
+**D-032** SSE push from the monitor. **D-033** dashboard approvals via server-held pending
+operations.
 
 ---
 
-## 5. Decisions (summary — full text in docs/DECISION_LOG.md)
+## 5. Remaining work
 
-Load-bearing ones: **D-018** node:sqlite (zero native deps). **D-019** optimistic concurrency via
-revisions. **D-020** tool-set adjustments + in-memory approval tokens. **D-021** event lifecycle
-semantics (sync ops persist queued→working→terminal; `travelling` is presentation-only).
-**D-022** dashboard state reads create no events. **D-023** scene = pure derivation of persisted
-state. **D-024** 2.5s polling; replay animation of newly observed events; reload never replays
-history. **D-025** monitor is read-only by construction, embeddable via `startMonitorServer()`.
+- **macOS hardware verification** — the only open polish goal; needs the user's Apple machine.
+- **User-side steps pending:** reinstall `dist/claude-mission-control.mcpb` (approval buttons
+  in the chat widget), relaunch the monitor shortcut (SSE needs the new server process), record
+  README footage (placeholder comment near the top of README, drop media in `docs/media/`),
+  publish the v0.2.0 GitHub release with the `.mcpb` asset, optionally flip the repo public and
+  add a description/topics.
+- CI polling from a Claude session needs auth (no `gh` installed; private repo). Pushes work
+  via Windows credential manager.
 
----
+## 6. Constraints & working agreements
 
-## 6. Polish goals (recorded, NOT yet implemented)
+- **Truthfulness is the product**: visuals may show ONLY persisted Mission Control events and
+  saved project state (docs/MCP_OBSERVABILITY_MODEL.md is the law). Ambient/idle motion must
+  never read as work; the animation test mode is explicit, bannered, and synthetic-only.
+- No API keys, no cloud, no telemetry; all 3D procedural; migrations for schema changes;
+  preview/approve for destructive ops; logs never contain conversation content or secrets.
+- Domain imports no frameworks; UI never touches storage/transports; ESLint enforces this.
+- Work in phases with tests + CI green + a report at each boundary; update
+  `docs/DECISION_LOG.md` and `CHANGELOG.md`; update `docs/` when behavior changes.
+- The user prefers being asked before scope decisions, but grants "keep working" autonomy for
+  agreed work. Commits as `wyzd0m <dr.nuts1100@gmail.com>`, co-authored-by Claude trailer.
+- **Update the user's live Mission Control project as you work** (tasks/decisions/checkpoints)
+  — the user records the monitor for README footage and likes seeing the robots work.
+- User environment: Windows 11, Node 24, PowerShell sandboxed away from `%APPDATA%\Claude`
+  (use Bash/file tools there), OneDrive Desktop, 2560×1440 monitor.
 
-Tracked in **two places**: README "Polish goals" section AND as real tasks in the user's own
-Mission Control project ("Mission Control Monitor", the active project in their live DB):
-
-1. **Per-department robot work animations** — unique gestures/props per room (place task card,
-   file cartridge, package export) instead of the shared typing bob. (medium)
-2. ~~Real 3D text signage~~ — **DONE 2026-07-08** (D-026): canvas-sprite plaques above every
-   door + freestanding Command Hub sign (`packages/ui/src/facility/signage.tsx`); task closed in
-   the live DB and removed from the README list.
-3. **Multiple robots** for concurrent operations (capped instances). (medium)
-4. **In-dashboard approval buttons** — approve/reject Security Gate previews from the dashboard
-   instead of only in conversation. (medium; requires monitor write-path or host tool calls.)
-5. **Push-based live updates** — beat the 2.5s poll (SSE from monitor server; host notifications
-   when supported). (low)
-6. **macOS hardware verification** — clean install + workflows on Apple Silicon. (low; needs the
-   user's hardware.)
-
-The user explicitly said: these are goals to fix eventually, not now.
-
----
-
-## 7. Current problems / known limitations
-
-- **Screenshot verification of large viewports**: the preview tool can't faithfully capture an
-  emulated 2000px viewport; verify layout via DOM measurements (element clientWidth/Height) and
-  rely on the user's eyes for big-screen checks.
-- **Host compatibility moves fast**: MCP Apps in Claude Desktop is new; re-verify after app
-  updates (Phase 0 history in `poc/README.md`).
-- Monitor is repo-run only (`npm run monitor` / `start-monitor.cmd`); packaging it standalone is
-  part of the deferred "Option 3" native shell (Tauri/Electron tray, always-on-top) — the user
-  wants to live with the browser monitor before deciding.
-- In-chat widget updates require rebuilding + reinstalling the `.mcpb` manually.
-- Approvals happen only in conversation (see polish goal 4). One robot (goal 3).
-- `npm audit`: dev-only `tmp` advisory via `@anthropic-ai/mcpb` CLI — nothing ships in the bundle.
-
----
-
-## 8. Open items / unfinished
-
-- **User's "finishing notes" are still pending** — they said they'd deliver final notes; expect
-  direction on: Option 3 native monitor shell, a chat-launchable monitor tool (explicitly offered
-  and deferred), screenshots/demo video for the repo (user has material), flipping the repo
-  public, and PAT rotation.
-- Screenshots/demo video: the only unmet portfolio-checklist items (Claude cannot save preview
-  screenshots to disk; ask the user to contribute).
-- The GitHub release v0.1.0 predates the monitor + redesign; cut v0.2.0 when the user is ready
-  (CHANGELOG already has an Unreleased section with monitor + redesign entries — verify/extend).
-
-**Exact next steps for a fresh session:**
-
-1. Read `CLAUDE.md`, this file, and `docs/DECISION_LOG.md` (skim D-018…D-025).
-2. Ask the user for their finishing notes / pick from Section 6 goals or Section 8 items.
-3. Before any push: ask the user for GitHub auth (a PAT was used in-session but must NEVER be
-   committed; the git remote is clean). Recommend they rotate the old PAT if not done.
-4. After UI changes: `npm run build:dashboard` (monitor picks it up on refresh) and remind the
-   user to reinstall the `.mcpb` (`npm run release`) for the in-chat widget.
-
----
-
-## 9. Commands
+## 7. Commands
 
 ```bash
 npm install            # workspace deps
-npm run verify         # typecheck + lint + format:check + 151 tests  (run before every commit)
+npm run verify         # typecheck + lint + format:check + 181 tests  (before every commit)
 npm run format         # prettier write
 npm run build:dashboard# single-file dashboard -> packages/ui/dist/dashboard.html
 npm run release        # bundle + stdio smoke test + pack -> dist/claude-mission-control.mcpb
-npm run monitor        # standalone read-only monitor at http://127.0.0.1:8642/?monitor
+npm run monitor        # standalone monitor at http://127.0.0.1:8642/?monitor (SSE push)
 npm run mcp:dev        # MCP server on stdio      | npm run mcp:inspect  # MCP Inspector
-node poc/scripts/serve-dashboard.mjs   # serve built dashboard on :5181 (open /?demo)
-cd poc && npm run verify               # frozen Phase 0 spike checks
-```
-
-Dev verification pattern: `.claude/launch.json` has preview configs (`dashboard-static` :5181,
-`monitor` :8642). Use `?demo` for sample data. CI = `.github/workflows/ci.yml` (workspace checks
-
-- bundle smoke + PoC regression, Windows + Linux; polled via GitHub API after each push).
-
----
-
-## 10. Constraints & working agreements
-
-- **Truthfulness is the product**: visuals may show ONLY persisted Mission Control events and
-  saved project state. Never imply access to Claude's reasoning/conversations. Unknown progress
-  stays unknown. Idle says "Waiting for the next observable Mission Control activity." Ambient
-  robot motion must never read as work. (docs/MCP_OBSERVABILITY_MODEL.md is the law.)
-- No Anthropic API keys, no cloud, no telemetry — ever (v1 scope).
-- All 3D is procedural/code-generated; no imported models or paid assets.
-- Domain imports no frameworks; UI never touches storage/transports; MCP adapter stays thin.
-  ESLint enforces this — don't fight it, follow it.
-- Migrations for every schema change; destructive ops need preview/approve tokens; logs never
-  contain conversation content or secrets.
-- Work in phases with tests + CI green + a report at each boundary; update `docs/DECISION_LOG.md`
-  and `CHANGELOG.md`. Update `docs/` when behavior changes.
-- The user prefers being asked before scope decisions, but has granted broad "do whatever it
-  takes, keep working" autonomy for agreed work. Commits as `wyzd0m <dr.nuts1100@gmail.com>`,
-  co-authored-by Claude trailer.
-- User environment: Windows 11, Node 24 (system PATH), PowerShell tool is sandboxed away from
-  `%APPDATA%\Claude` (use Bash/file tools there), OneDrive Desktop. Claude Desktop app version
-  at last check: 1.8555.2+.
-
-```
-
+node poc/scripts/serve-dashboard.mjs   # dashboard on :5181 (open /?demo or /?test)
 ```

@@ -34,7 +34,7 @@ function baseState(): DashboardState {
   const at = new Date().toISOString();
   return {
     generatedAt: at,
-    serverVersion: "0.1.0 (animation test)",
+    serverVersion: "0.2.0 (animation test)",
     projects: [],
     activeProjectId: null,
     activeProject: null,

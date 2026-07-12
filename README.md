@@ -2,19 +2,22 @@
 
 A local-first project workspace for Claude Desktop. Claude gets structured tools for projects,
 tasks, decisions, checkpoints, and handoffs; you get a dashboard with a low-poly isometric
-facility where a small robot truthfully acts out every Mission Control operation.
+office where a fleet of three named robots — OTTO, PIP, and HEX — truthfully acts out every
+Mission Control operation.
 
-> **Status:** Version 0.1.0. All ten build phases complete; installed and verified on Claude
-> Desktop (Windows 11). Independent portfolio project — not affiliated with or endorsed by
-> Anthropic.
+> **Status:** Version 0.2.0. All ten build phases complete plus the full post-v1 polish round;
+> installed and verified on Claude Desktop (Windows 11). Independent portfolio project — not
+> affiliated with or endorsed by Anthropic.
+
+<p align="center">
+  <img width="640" alt="The Mission Control monitor: the robot fleet working the facility as Claude uses the tools" src="https://github.com/user-attachments/assets/01778b21-e95c-4180-a361-f147479bde12" />
+</p>
 
 - **One-click install** — a single `.mcpb` file. No API key, no Node/Python, no config editing.
 - **Local-first** — everything lives in a SQLite database in your user profile. No cloud, no
   telemetry, no network access.
 - **Truthful by construction** — the visualization renders only persisted tool events and saved
   project state. It never claims to show Claude's reasoning, and unknown progress stays unknown.
-
-  <img width="426" height="240" alt="0710(1)" src="https://github.com/user-attachments/assets/01778b21-e95c-4180-a361-f147479bde12" />
 
 ## What it does
 
@@ -27,9 +30,11 @@ Ask Claude things like:
 
 Claude uses 29 Mission Control tools; every call becomes a persisted activity event. The
 dashboard (opened with _"open Mission Control"_) shows the project header and stage bar, an exact
-activity panel, an event timeline, task/decision/checkpoint views — and the facility, where the
-robot dispatches from the Command Core, works in the department that matches the operation, and
-waits at the Security Gate whenever a bulk or destructive change needs your approval.
+activity panel, an event timeline, task/decision/checkpoint views — and the facility, where
+robots dispatch from the Command Core, roll to the department that matches the operation,
+perform its work gesture (filing a cartridge, stamping a review, packing an export…), and hold
+at the Security Gate whenever a bulk or destructive change needs your approval — which you can
+grant right on the waiting card.
 
 Try the layout in a plain browser: `npm run build:dashboard`, then
 `node poc/scripts/serve-dashboard.mjs` and open `http://localhost:5181/?demo` (clearly labeled
@@ -129,8 +134,9 @@ The facility is an interface for verified events, not an AI mind reader
 
 ```bash
 npm install
-npm run verify     # typecheck + lint + format + 146 tests
+npm run verify     # typecheck + lint + format + 181 tests
 npm run release    # build bundle + stdio smoke test + pack .mcpb
+npm run monitor    # standalone read-only monitor window
 npm run mcp:inspect  # interactive tool testing with MCP Inspector
 ```
 
@@ -156,12 +162,25 @@ Windows and Linux.
 | [`docs/PORTFOLIO_NOTES.md`](docs/PORTFOLIO_NOTES.md)                 | Resume bullets, interview notes |
 | [`CHANGELOG.md`](CHANGELOG.md)                                       | Release notes                   |
 
-## History
+## How this was built
 
-Built phase-by-phase by Claude under the engineering contract in [`CLAUDE.md`](CLAUDE.md):
-platform proof (Phase 0, kept in [`poc/`](poc/README.md)), repository foundation, domain and
-database, MCP tools, event layer, dashboard, static facility, event-driven animation, end-to-end
-workflows, packaging, and this polish pass. Each phase ended with tests, CI, and a review stop.
+The entire codebase — domain model, MCP server, procedural 3D scene, tests, CI, packaging —
+was written end-to-end by Claude, working under the engineering contract in
+[`CLAUDE.md`](CLAUDE.md) and a ten-phase roadmap with a human review stop at every phase
+boundary. The repository doubles as a record of that collaboration:
+
+- [`CLAUDE.md`](CLAUDE.md) — the standing contract: truthfulness rules, engineering standards,
+  scope exclusions, and the phased method.
+- [`docs/DECISION_LOG.md`](docs/DECISION_LOG.md) — all 33 architectural decisions with
+  rationale and rejected alternatives, written as the decisions were made.
+- [`docs/IMPLEMENTATION_ROADMAP.md`](docs/IMPLEMENTATION_ROADMAP.md) — the phases, from a
+  disposable platform proof ([`poc/`](poc/README.md), which caught a real host limitation
+  before any product code existed) through packaging and polish.
+- Mission Control was used to manage its own development: the polish goals lived as tasks in a
+  Mission Control project, and the robots animated their own feature work as it shipped.
+
+Each phase ended with tests green, CI green (Windows + Linux), and a review stop. Details for
+reviewers: [`docs/PORTFOLIO_NOTES.md`](docs/PORTFOLIO_NOTES.md).
 
 ## License
 

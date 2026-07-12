@@ -46,7 +46,7 @@ function toToolResponse(structured: unknown): ToolResponse {
 }
 
 export function createExtAppsBridge(): HostBridge {
-  const app = new App({ name: "Claude Mission Control", version: "0.1.0" });
+  const app = new App({ name: "Claude Mission Control", version: "0.2.0" });
   const stateListeners: Array<(state: DashboardState) => void> = [];
   const connectionListeners: Array<(status: { connected: boolean; detail?: string }) => void> = [];
 

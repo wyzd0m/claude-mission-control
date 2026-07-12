@@ -6,6 +6,14 @@ Version 1.0.0 is the first one-click release described in `docs/IMPLEMENTATION_R
 
 ## [Unreleased]
 
+Nothing yet.
+
+## [0.2.0] — 2026-07-11
+
+The post-v1 release: the standalone monitor, the office-diorama redesign with a named robot
+fleet, and every buildable polish goal (readable signage, per-department work animations,
+concurrent robots, in-dashboard approvals, push-based live updates).
+
 ### Added
 
 - In-dashboard approvals (D-033): pending Security Gate previews now show Approve and Reject
